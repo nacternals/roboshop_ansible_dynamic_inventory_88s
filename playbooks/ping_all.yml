@@ -1,0 +1,13 @@
+---
+- name: Ping all dynamic EC2 instances
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Run ping module
+      ansible.builtin.ping:
+      register: ping_result
+
+    - name: Print ping result
+      ansible.builtin.debug:
+        var: ping_result
