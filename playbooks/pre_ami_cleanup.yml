@@ -34,11 +34,12 @@
 - name: Common cleanup for AMI
   hosts: tier_db
   become: true
+  gather_facts: false
   tasks:
-    - ansible.builtin.shell: yum clean all && rm -rf /tmp/* /var/tmp/*
-      args:
-        warn: false
-
+    - name: Clean yum cache and temp files
+      ansible.builtin.shell: |
+        yum clean all
+        rm -rf /tmp/* /var/tmp/*
 
 # ---
 # - name: Prepare DB servers for Golden AMI
