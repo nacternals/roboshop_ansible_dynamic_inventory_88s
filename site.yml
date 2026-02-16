@@ -1,5 +1,4 @@
 ---
-
 #Database Tier
 - name: MongoDB
   hosts: comp_mongodb
@@ -9,3 +8,26 @@
   roles:
     - mongodb
 
+- name: MySQL
+  hosts: comp_mysql
+  become: true
+  gather_facts: false
+  tags: [mysql]
+  roles:
+    - mysql
+
+- name: RabbitMQ
+  hosts: comp_rabbitmq
+  become: true
+  gather_facts: false
+  tags: [rabbitmq]
+  roles:
+    - rabbitmq
+
+- name: Redis
+  hosts: comp_redis
+  become: true
+  gather_facts: false
+  tags: [redis]
+  roles:
+    - redis

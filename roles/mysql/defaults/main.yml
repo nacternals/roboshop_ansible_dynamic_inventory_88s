@@ -1,2 +1,4 @@
 ---
-# defaults file for roles/mysql
+# defaults file for mysql
+service_name: mysqld
+package_name: mysql-community-server
