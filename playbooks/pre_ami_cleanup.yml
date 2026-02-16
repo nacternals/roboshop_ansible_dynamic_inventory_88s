@@ -1,50 +1,92 @@
 ---
-- name: Prepare DB servers for Golden AMI
-  hosts: tier_db
+- name: Stop MongoDB for AMI
+  hosts: comp_mongodb
   become: true
-  gather_facts: false
-
   tasks:
-    # -------------------------
-    # Stop DB Services Safely
-    # -------------------------
-
-    - name: Stop MongoDB
-      ansible.builtin.service:
+    - ansible.builtin.systemd:
         name: mongod
         state: stopped
-      ignore_errors: true
 
-    - name: Stop Redis
-      ansible.builtin.service:
+- name: Stop Redis for AMI
+  hosts: comp_redis
+  become: true
+  tasks:
+    - ansible.builtin.systemd:
         name: redis
         state: stopped
-      ignore_errors: true
 
-    - name: Stop MySQL
-      ansible.builtin.service:
+- name: Stop MySQL for AMI
+  hosts: comp_mysql
+  become: true
+  tasks:
+    - ansible.builtin.systemd:
         name: mysqld
         state: stopped
-      ignore_errors: true
 
-    - name: Stop RabbitMQ
-      ansible.builtin.service:
+- name: Stop RabbitMQ for AMI
+  hosts: comp_rabbitmq
+  become: true
+  tasks:
+    - ansible.builtin.systemd:
         name: rabbitmq-server
         state: stopped
-      ignore_errors: true
 
-    # -------------------------
-    # Cleanup
-    # -------------------------
-
-    - name: Clean yum cache and temp files
-      ansible.builtin.shell: |
-        yum clean all
-        rm -rf /tmp/* /var/tmp/*
+- name: Common cleanup for AMI
+  hosts: tier_db
+  become: true
+  tasks:
+    - ansible.builtin.shell: yum clean all && rm -rf /tmp/* /var/tmp/*
       args:
-        executable: /bin/bash
+        warn: false
 
-    - name: cloud-init clean (optional)
-      ansible.builtin.shell: cloud-init clean || true
-      args:
-        executable: /bin/bash
+
+# ---
+# - name: Prepare DB servers for Golden AMI
+#   hosts: tier_db
+#   become: true
+#   gather_facts: false
+
+#   tasks:
+#     # -------------------------
+#     # Stop DB Services Safely
+#     # -------------------------
+
+#     - name: Stop MongoDB
+#       ansible.builtin.service:
+#         name: mongod
+#         state: stopped
+#       ignore_errors: true
+
+#     - name: Stop Redis
+#       ansible.builtin.service:
+#         name: redis
+#         state: stopped
+#       ignore_errors: true
+
+#     - name: Stop MySQL
+#       ansible.builtin.service:
+#         name: mysqld
+#         state: stopped
+#       ignore_errors: true
+
+#     - name: Stop RabbitMQ
+#       ansible.builtin.service:
+#         name: rabbitmq-server
+#         state: stopped
+#       ignore_errors: true
+
+#     # -------------------------
+#     # Cleanup
+#     # -------------------------
+
+#     - name: Clean yum cache and temp files
+#       ansible.builtin.shell: |
+#         yum clean all
+#         rm -rf /tmp/* /var/tmp/*
+#       args:
+#         executable: /bin/bash
+
+#     - name: cloud-init clean (optional)
+#       ansible.builtin.shell: cloud-init clean || true
+#       args:
+#         executable: /bin/bash
