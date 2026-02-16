@@ -1,0 +1,112 @@
+---
+# 0) Bootstrap admin access (run once initially using -u centos)
+- name: Bootstrap ansadmin SSH access on all Roboshop hosts
+  hosts: roboshop
+  become: true
+  gather_facts: false
+  tags: [bootstrap]
+  tasks:
+    - name: Setup ansadmin SSH access
+      ansible.builtin.import_role:
+        name: common
+        tasks_from: ssh_access_ansadmin.yml
+      when: bootstrap_ansadmin | default(false) | bool
+  
+- name: Roboshop Engine
+  hosts: roboshop
+  become: true
+  gather_facts: false
+  tags: [pingservice]
+  roles:
+    - pingservice
+
+#Database Tier
+- name: MongoDB
+  hosts: comp_mongodb
+  become: true
+  gather_facts: false
+  tags: [mongodb]
+  roles:
+    - mongodb
+
+- name: Redis
+  hosts: comp_redis
+  become: true
+  gather_facts: false
+  tags: [redis]
+  roles:
+    - redis
+
+- name: MySQL
+  hosts: comp_mysql
+  become: true
+  gather_facts: false
+  tags: [mysql]
+  roles:
+    - mysql
+
+- name: RabbitMQ
+  hosts: comp_rabbitmq
+  become: true
+  gather_facts: false
+  tags: [rabbitmq]
+  roles:
+    - rabbitmq
+
+#App Tier
+- name: Catalogue
+  hosts: comp_catalogue
+  become: true
+  gather_facts: false
+  tags: [catalogue]
+  roles:
+    - catalogue
+
+- name: Cart
+  hosts: comp_cart
+  become: true
+  gather_facts: false
+  tags: [cart]
+  roles:
+    - cart
+
+- name: User
+  hosts: comp_user
+  become: true
+  gather_facts: false
+  tags: [user]
+  roles:
+    - user
+
+- name: Shipping
+  hosts: comp_shipping
+  become: true
+  gather_facts: false
+  tags: [shipping]
+  roles:
+    - shipping
+
+- name: Payment
+  hosts: comp_payment
+  become: true
+  gather_facts: false
+  tags: [payment]
+  roles:
+    - payment
+
+- name: Dispatch
+  hosts: comp_dispatch
+  become: true
+  gather_facts: false
+  tags: [dispatch]
+  roles:
+    - dispatch
+
+#Web Tier
+- name: Web
+  hosts: comp_web
+  become: true
+  gather_facts: false
+  tags: [web]
+  roles:
+    - web
