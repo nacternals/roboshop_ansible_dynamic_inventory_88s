@@ -1,2 +1,49 @@
 ---
-# tasks file for roles/redis
+# tasks file for redis
+
+# Setting-up Roboshop Application Basic Requirements
+- name: Run Roboshop Application Basic Requirements (from common to redis microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
+
+# Setting-up Redis Database (CentOS Stream 8 - use AppStream module)
+- name: Reset redis module
+  ansible.builtin.command: dnf -y module reset redis
+
+- name: Enable redis module stream
+  ansible.builtin.command: dnf -y module enable redis:6
+
+# Install Redis
+- name: Installing Redis Required Version
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
+
+# Configure first, then start service (important)
+- name: Configure Redis to listen on all interfaces
+  block:
+    - name: Remove invalid Mongo-style bindIp if present
+      ansible.builtin.lineinfile:
+        path: /etc/redis.conf
+        regexp: '^\s*bindIp:'
+        state: absent
+ 
+    - name: Set Redis bind address
+      ansible.builtin.lineinfile:
+        path: /etc/redis.conf
+        regexp: '^bind\s+'
+        line: 'bind 0.0.0.0'
+
+    - name: Disable Redis protected mode
+      ansible.builtin.lineinfile:
+        path: /etc/redis.conf
+        regexp: '^protected-mode\s+'
+        line: 'protected-mode no'
+  notify: Restart redis
+
+# Start/Enable Redis after config
+- name: Enabling and Starting Redis Service
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
