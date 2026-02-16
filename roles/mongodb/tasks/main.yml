@@ -1,2 +1,31 @@
 ---
-# tasks file for roles/mongodb
+# tasks file for mongodb
+
+#Setting-up Roboshop Application Basic Requirements
+- name: Run Roboshop Application Basic Requirements (from common to mongodb microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
+
+#Setting-up MongoDB Database
+- name: Installing mongodb.repo (from common to mongodb microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: mongodb_repo.yml
+
+- name: Installing MongoDB Database
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
+
+- name: Enabling and starting MongoDB Database
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
+
+- name: Configuring MongoDB to listen on all interfaces
+  ansible.builtin.lineinfile:
+    path: /etc/mongod.conf
+    regexp: '^\s*bindIp:\s*'
+    line: "  bindIp: 0.0.0.0"
+  notify: Restart mongod

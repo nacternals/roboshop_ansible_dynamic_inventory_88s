@@ -1,0 +1,57 @@
+---
+# tasks file for common
+
+#Setting-up Basic App Requirements
+- name: Ensuring SUDO is Installed
+  ansible.builtin.package:
+    name: sudo
+    state: present
+
+- name: Creating Roboshop Service User (roboshop) with Password
+  ansible.builtin.user:
+    name: roboshop
+    state: present
+    shell: /bin/bash
+    create_home: true
+    password: "{{ roboshop_password_plain | password_hash('sha512') }}"
+
+# - name: Creating Ansible Automation User (ansadmin) with Password
+#   ansible.builtin.user:
+#     name: ansadmin
+#     state: present
+#     shell: /bin/bash
+#     create_home: true
+#     password: "{{ ansadmin_password_plain | password_hash('sha512') }}"
+#     update_password: on_create
+
+# - name: Allowing ansadmin passwordless sudo
+#   ansible.builtin.copy:
+#     dest: /etc/sudoers.d/ansadmin
+#     content: "ansadmin ALL=(ALL) NOPASSWD: ALL\n"
+#     owner: root
+#     group: root
+#     mode: "0440"
+
+- name: Creating Roboshop Default App Directory
+  ansible.builtin.file:
+    path: "{{ roboshop_app_dir }}"
+    state: directory
+    owner: roboshop
+    group: roboshop
+    mode: "0755"
+
+- name: Creating Roboshop Log Directory
+  ansible.builtin.file:
+    path: "{{ roboshop_log_dir }}"
+    state: directory
+    owner: roboshop
+    group: roboshop
+    mode: "0755"
+
+- name: Creating {{ service_name }} Log File
+  ansible.builtin.file:
+    path: "{{ roboshop_log_dir }}/{{ service_name }}_date_time.log"
+    state: touch
+    owner: roboshop
+    group: roboshop
+    mode: "0755"
