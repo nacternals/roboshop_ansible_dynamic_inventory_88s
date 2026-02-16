@@ -1,2 +1,4 @@
 ---
-# defaults file for roles/rabbitmq
+# defaults file for rabbitmq
+service_name: rabbitmq-server
+package_name: rabbitmq-server
