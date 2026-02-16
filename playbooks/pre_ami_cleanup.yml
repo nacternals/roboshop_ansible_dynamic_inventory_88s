@@ -1,0 +1,50 @@
+---
+- name: Prepare DB servers for Golden AMI
+  hosts: tier_db
+  become: true
+  gather_facts: false
+
+  tasks:
+    # -------------------------
+    # Stop DB Services Safely
+    # -------------------------
+
+    - name: Stop MongoDB
+      ansible.builtin.service:
+        name: mongod
+        state: stopped
+      ignore_errors: true
+
+    - name: Stop Redis
+      ansible.builtin.service:
+        name: redis
+        state: stopped
+      ignore_errors: true
+
+    - name: Stop MySQL
+      ansible.builtin.service:
+        name: mysqld
+        state: stopped
+      ignore_errors: true
+
+    - name: Stop RabbitMQ
+      ansible.builtin.service:
+        name: rabbitmq-server
+        state: stopped
+      ignore_errors: true
+
+    # -------------------------
+    # Cleanup
+    # -------------------------
+
+    - name: Clean yum cache and temp files
+      ansible.builtin.shell: |
+        yum clean all
+        rm -rf /tmp/* /var/tmp/*
+      args:
+        executable: /bin/bash
+
+    - name: cloud-init clean (optional)
+      ansible.builtin.shell: cloud-init clean || true
+      args:
+        executable: /bin/bash
