@@ -1,2 +1,49 @@
 ---
-# tasks file for roles/user
+# tasks file for user
+#Setting-up Roboshop Application Basic Requirements
+- name: Run Roboshop Application Basic Requirements (from common to user microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
+
+#Setting-up NodeJS
+- name: Installing NodeJS
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: nodejs_installation.yml
+
+#Setting-up User Microservice Application Code
+- name: Downloading and Unzipping User Microservice Application Code
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
+
+- name: Installing User Microservice Application Dependencies
+  ansible.builtin.command: "npm install"
+  args:
+    chdir: /app
+
+- name: Copying User Service File as /etc/systemd/system/user.service
+  ansible.builtin.template:
+    src: user.service.j2
+    dest: /etc/systemd/system/user.service
+  notify: Reload systemd daemon
+
+- name: Enabling and Starting User Service
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
+
+#Loading User Schema into MongoDB Database
+- name: Copying MongoDB Repo File as /etc/yum.repos.d/mongodb.repo
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: mongodb_repo.yml
+
+- name: Installing MongoDB Client
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
+
+- name: Loading User Schema into MongoDB Database
+  ansible.builtin.shell: "mongo --host {{ mongo_host }} </app/schema/user.js"

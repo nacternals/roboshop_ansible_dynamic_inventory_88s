@@ -1,2 +1,4 @@
 ---
-# defaults file for roles/user
+# defaults file for user
+service_name: user
+package_name: mongodb-org-shell
