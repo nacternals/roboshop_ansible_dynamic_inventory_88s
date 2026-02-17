@@ -14,3 +14,29 @@ rabbitmq_port: 5672
 
 roboshop_app_port: 8080
 
+
+
+#db tier
+mongo_host: mongodb.dev.optimusprime.uno
+redis_host: redis.dev.optimusprime.uno
+mysql_host: mysql.dev.optimusprime.uno
+rabbitmq_host: rabbitmq.dev.optimusprime.uno
+
+#app tier
+catalogue_host: catalogue.dev.optimusprime.uno
+cart_host: cart.dev.optimusprime.uno
+user_host: user.dev.optimusprime.uno
+shipping_host: shipping.dev.optimusprime.uno
+payment_host: payment.dev.optimusprime.uno
+dispatch_host: dispatch.dev.optimusprime.uno
+
+#web tier
+web_host: web.dev.optimusprime.uno
+
+#app ports
+catalogue_port: "{{ roboshop_app_port }}"
+cart_port: "{{ roboshop_app_port }}"
+user_port: "{{ roboshop_app_port }}"
+shipping_port: "{{ roboshop_app_port }}"
+payment_port: "{{ roboshop_app_port }}"
+dispatch_port: "{{ roboshop_app_port }}"
