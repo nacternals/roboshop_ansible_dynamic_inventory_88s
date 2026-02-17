@@ -31,3 +31,61 @@
   tags: [redis]
   roles:
     - redis
+
+#App Tier
+- name: Catalogue
+  hosts: comp_catalogue
+  become: true
+  gather_facts: false
+  tags: [catalogue]
+  roles:
+    - catalogue
+
+- name: Cart
+  hosts: comp_cart
+  become: true
+  gather_facts: false
+  tags: [cart]
+  roles:
+    - cart
+
+- name: User
+  hosts: comp_user
+  become: true
+  gather_facts: false
+  tags: [user]
+  roles:
+    - user
+
+- name: Shipping
+  hosts: comp_shipping
+  become: true
+  gather_facts: false
+  tags: [shipping]
+  roles:
+    - shipping
+
+- name: Payment
+  hosts: comp_payment
+  become: true
+  gather_facts: false
+  tags: [payment]
+  roles:
+    - payment
+
+- name: Dispatch
+  hosts: comp_dispatch
+  become: true
+  gather_facts: false
+  tags: [dispatch]
+  roles:
+    - dispatch
+
+#Web Tier
+- name: Web
+  hosts: comp_web
+  become: true
+  gather_facts: false
+  tags: [web]
+  roles:
+    - web
