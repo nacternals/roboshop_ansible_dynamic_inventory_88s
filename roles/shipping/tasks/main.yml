@@ -1,2 +1,64 @@
 ---
-# tasks file for roles/shipping
+# tasks file for shipping
+#Setting-up Roboshop Application Basic Requirements
+- name: Run Roboshop Basic Application Requirements (from common to shipping microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
+
+#Setting-up Maven and Java and MySQL Client
+- name: Installing Maven and Java and MySQL Client
+  ansible.builtin.package:
+    name: "{{ shipping_packages }}"
+    state: present
+
+#Setting-up Shipping Microservice Application Code
+- name: Downloading and Unzipping Shipping Microservice Application Code
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
+
+- name: Downloading Shipping Application Dependencies and Building Application Jar
+  ansible.builtin.command: "mvn clean package"
+  args:
+    chdir: /app
+
+- name: Renaming Shipping Application Jar
+  ansible.builtin.command: "mv target/shipping-1.0.jar shipping.jar"
+  args:
+    chdir: /app
+
+#Setting-up Shipping Microservice systemd Service
+- name: Copying Shipping Service File (shipping.service.j2) to /etc/systemd/system/shipping.service
+  ansible.builtin.template:
+    src: shipping.service.j2
+    dest: /etc/systemd/system/shipping.service
+  notify: Reload systemd daemon
+
+- name: Run handlers now (reload systemd before starting service)
+  ansible.builtin.meta: flush_handlers
+
+- name: Enabling and Staring Shipping Service
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
+
+#Loading Shipping Schema into MySQL Database
+#MySQL Client has already been installed via package_installer.yml
+
+# - name: Loading Shipping Schema into MySQL Database
+#   ansible.builtin.shell: " mysql -h {{ mysql_host }} -uroot -pRoboShop@1 < /app/schema/shipping.sql "
+#   notify: Restart Shipping Service
+
+- name: Loading Shipping DB SQL files into MySQL
+  ansible.builtin.shell: >
+    mysql -h {{ mysql_host }} -uroot -pRoboShop@1 < {{ item }}
+  args:
+    chdir: /app/db
+    executable: /bin/bash
+  loop:
+    - schema.sql
+    - app-user.sql
+    - master-data.sql
+  no_log: true
+  notify: Restart Shipping Service
