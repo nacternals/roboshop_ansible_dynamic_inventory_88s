@@ -1,2 +1,43 @@
 ---
-# tasks file for roles/dispatch
+# tasks file for dispatch
+#Setting-up Roboshop Basic App Requirements
+- name: Run Roboshop Application Basic Requirements (from common to dispatch microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
+
+#Setting-up GoLang
+- name: Installing Go (GoLang)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
+
+#Setting-up Dispatch Application Code
+- name: Downloading and Unzipping Dispatch Microservice Application Code
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
+
+#Setting-up Dispatch Application Dependencies and Build
+- name: Intializing Dispatch Application Dependencies and Building the Application
+  ansible.builtin.shell: |
+    go mod init dispatch
+    go get
+    go build
+  args:
+    chdir: /app
+
+#Setting-up Dispatch Service
+- name: Copying Dispatch Service File (dispatch.service.j2) to /etc/systemd/system/dispatch.service
+  ansible.builtin.template:
+    src: dispatch.service.j2
+    dest: /etc/systemd/system/dispatch.service
+  notify: Reload systemd daemon
+
+- name: Run handlers now (reload systemd before starting service)
+  ansible.builtin.meta: flush_handlers
+
+- name: Enabling and Starting Dispatch Service
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml

@@ -1,2 +1,4 @@
 ---
-# defaults file for roles/dispatch
+# defaults file for dispatch
+service_name: dispatch
+package_name: golang
