@@ -82,10 +82,10 @@
     - dispatch
 
 #Web Tier
-- name: Web
-  hosts: comp_web
+- name: nginx
+  hosts: comp_nginx
   become: true
   gather_facts: false
-  tags: [web]
+  tags: [nginx]
   roles:
-    - web
+    - nginx
