@@ -1,2 +1,45 @@
 ---
-# tasks file for roles/payment
+# tasks file for payment
+#Setting-up Roboshop Basic App Requirements
+- name: Run Roboshop Basic Application Requirements (from common to payment microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
+
+#Install Python
+- name: Installing Python 3.6, gcc, and python3-devel
+  ansible.builtin.package:
+    name: "{{ payment_packages }}"
+    state: present
+
+#Setting-up Payment Microservice Application Code
+- name: Downloading and Unzipping Payment Microservice Application Code
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
+
+#Setting-up Payment Application Dependencies
+# - name: Installing Payment Application Dependencies
+#   ansible.builtin.command: "pip3.6 install -r requirements.txt"
+#   args:
+#     chdir: /app
+
+- name: Installing Payment Application Dependencies
+  ansible.builtin.pip:
+    requirements: /app/requirements.txt
+    executable: pip3
+
+#Setting-up Payment systemd Service
+- name: Copying Payment Service File (payment.service.j2) as /etc/systemd/system/payment.service
+  ansible.builtin.template:
+    src: payment.service.j2
+    dest: /etc/systemd/system/payment.service
+  notify: Reload systemd daemon
+
+- name: Run handlers now (reload systemd before starting service)
+  ansible.builtin.meta: flush_handlers
+
+- name: Enabling and Starting Payment Service
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
