@@ -1,2 +1,4 @@
 ---
-# defaults file for roles/web
+# defaults file for web
+service_name: nginx
+package_name: nginx

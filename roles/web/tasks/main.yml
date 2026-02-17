@@ -1,2 +1,44 @@
 ---
-# tasks file for roles/web
+# tasks file for web
+#Setting-up Roboshop Basic Application Requirements
+- name: Run Roboshop Basic Application Requirements
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
+
+#Setting-up Nginx
+- name: Installing Nginx
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
+
+- name: Enabling and Starting Nginx Service
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
+
+#Setting-up Web Microservice Application Code
+- name: Removing Nginx Default HTML Pages
+  ansible.builtin.command: "rm -rf /usr/share/nginx/html/*"
+
+- name: Downloading Web Microservice Application Code
+  ansible.builtin.get_url:
+    url: https://roboshop-builds.s3.amazonaws.com/web.zip
+    dest: /tmp/web.zip
+
+- name: Unzipping Web Microservice Application Code to /usr/share/nginx/hmtl/
+  ansible.builtin.unarchive:
+    src: /tmp/web.zip
+    dest: /usr/share/nginx/html/
+    remote_src: true
+
+#Setting-up Nginx Reverse Proxy
+- name: Copying roboshop.conf.j2 as /etc/nginx/default.d/roboshop.conf
+  ansible.builtin.template:
+    src: roboshop.conf.j2
+    dest: /etc/nginx/default.d/roboshop.conf
+  notify: Restart Nginx Service
+
+
+
+
