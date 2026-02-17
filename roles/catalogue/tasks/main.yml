@@ -1,2 +1,55 @@
 ---
-# tasks file for roles/catalogue
+# tasks file for catalogue
+
+#Setting-up Basic Roboshop Application Requirements
+- name: Run Roboshop Basic App Requirements (from common to catalogue microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
+
+#Setting-up NodeJS
+- name: Installing NodeJS (from common to catalogue microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: nodejs_installation.yml
+
+#Setting-up Catalogue Microservice
+- name: Downloading and Unzipping Catalogue Microservice
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
+
+- name: Installing Catalogue Application Dependencies
+  ansible.builtin.command: "npm install"
+  args:
+    chdir: /app
+    creates: /app/node_modules
+
+- name: Copying catalogue.service.j2 as /etc/systemd/system/catalogue.service
+  ansible.builtin.template:
+    src: catalogue.service.j2
+    dest: /etc/systemd/system/catalogue.service
+    mode: "0644"
+  notify: Reload systemd daemon
+
+- name: Run handlers now (reload systemd before starting service)
+  ansible.builtin.meta: flush_handlers
+
+- name: Enabling and Starting Catalogue Service
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
+
+#Loading Catalogue Schema into MongoDB Database
+- name: Installing mongodb.repo (from common to catalogue microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: mongodb_repo.yml
+
+- name: Installing MongoDB Client
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
+  
+- name: Loading Catalogue Schema into MongoDB Database
+  ansible.builtin.shell: "mongo --host {{ mongo_host }} </app/schema/catalogue.js"
