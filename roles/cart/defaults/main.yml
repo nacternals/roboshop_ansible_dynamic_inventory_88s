@@ -1,2 +1,3 @@
 ---
-# defaults file for roles/cart
+# defaults file for cart
+service_name: cart
