@@ -10,6 +10,10 @@ location /api/cart/ { proxy_pass http://{{ cart_host }}:{{ cart_port }}/; }
 location /api/shipping/ { proxy_pass http://{{ shipping_host }}:{{ shipping_port }}/; }
 location /api/payment/ { proxy_pass http://{{ payment_host }}:{{ payment_port }}/; }
 location /api/dispatch/ { proxy_pass http://{{ dispatch_host }}:{{ dispatch_port }}/; }
+location /api/ratings/ {
+  default_type application/json;
+  return 200 '{"ok":true,"message":"ratings disabled"}';
+}
 
 
 location /health {
