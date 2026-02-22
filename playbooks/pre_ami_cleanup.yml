@@ -3,7 +3,8 @@
   hosts: comp_mongodb
   become: true
   tasks:
-    - ansible.builtin.systemd:
+    - name: Stop mongod
+      ansible.builtin.systemd:
         name: mongod
         state: stopped
 
@@ -11,7 +12,8 @@
   hosts: comp_redis
   become: true
   tasks:
-    - ansible.builtin.systemd:
+    - name: Stop redis
+      ansible.builtin.systemd:
         name: redis
         state: stopped
 
@@ -19,7 +21,8 @@
   hosts: comp_mysql
   become: true
   tasks:
-    - ansible.builtin.systemd:
+    - name: Stop mysqld
+      ansible.builtin.systemd:
         name: mysqld
         state: stopped
 
@@ -27,67 +30,50 @@
   hosts: comp_rabbitmq
   become: true
   tasks:
-    - ansible.builtin.systemd:
+    - name: Stop rabbitmq-server
+      ansible.builtin.systemd:
         name: rabbitmq-server
         state: stopped
 
-- name: Common cleanup for AMI
+- name: Common cleanup for AMI (DB tier)
   hosts: tier_db
   become: true
-  gather_facts: false
   tasks:
-    - name: Clean yum cache and temp files
-      ansible.builtin.shell: |
-        yum clean all
-        rm -rf /tmp/* /var/tmp/*
+    - name: Clean yum cache
+      ansible.builtin.yum:
+        name: "*"
+        state: latest
+        update_cache: false
+      register: yum_result
+      failed_when: false
 
-# ---
-# - name: Prepare DB servers for Golden AMI
-#   hosts: tier_db
-#   become: true
-#   gather_facts: false
+    - name: Remove yum cache dirs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/cache/yum
+        - /var/tmp/yum-*
 
-#   tasks:
-#     # -------------------------
-#     # Stop DB Services Safely
-#     # -------------------------
+    - name: Clean temp dirs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp
+        - /var/tmp
 
-#     - name: Stop MongoDB
-#       ansible.builtin.service:
-#         name: mongod
-#         state: stopped
-#       ignore_errors: true
+    - name: Recreate temp dirs with correct perms
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "/tmp", mode: "1777" }
+        - { path: "/var/tmp", mode: "1777" }
 
-#     - name: Stop Redis
-#       ansible.builtin.service:
-#         name: redis
-#         state: stopped
-#       ignore_errors: true
-
-#     - name: Stop MySQL
-#       ansible.builtin.service:
-#         name: mysqld
-#         state: stopped
-#       ignore_errors: true
-
-#     - name: Stop RabbitMQ
-#       ansible.builtin.service:
-#         name: rabbitmq-server
-#         state: stopped
-#       ignore_errors: true
-
-#     # -------------------------
-#     # Cleanup
-#     # -------------------------
-
-#     - name: Clean yum cache and temp files
-#       ansible.builtin.shell: |
-#         yum clean all
-#         rm -rf /tmp/* /var/tmp/*
-#       args:
-#         executable: /bin/bash
-
-#     - name: cloud-init clean (optional)
-#       ansible.builtin.shell: cloud-init clean || true
-#       args:
-#         executable: /bin/bash
+    - name: remove cloud-init state (recommended for AMI baking)
+      ansible.builtin.file:
+        path: /var/lib/cloud
+        state: absent
+      ignore_errors: true
