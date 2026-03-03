@@ -28,9 +28,29 @@
     tasks_from: enable_start_service.yml
 
 #Setting-up RabbitMQ User and Enabling Permissions
-- name: Creating RabbitMQ Database User (roboshop) with Password
-  # ansible.builtin.command: "rabbitmqctl add_user roboshop roboshop123"
-  ansible.builtin.shell: "rabbitmqctl list_users | awk '{print$1}' | grep -qx roboshop || rabbitmqctl add_user roboshop roboshop123 "
+# --- FIX: Wait for RabbitMQ, then create user + permissions ---
 
-- name: Enabling RabbitMQ Database User (roboshop) Permissions
-  ansible.builtin.command: 'rabbitmqctl set_permissions -p / roboshop ".*" ".*" ".*"'
+- name: Ensure RabbitMQ service is started
+  ansible.builtin.service:
+    name: "{{ service_name }}"
+    state: started
+    enabled: yes
+
+- name: Wait until RabbitMQ is ready
+  ansible.builtin.command: rabbitmqctl status
+  register: rabbitmq_status
+  retries: 20
+  delay: 3
+  until: rabbitmq_status.rc == 0
+  changed_when: false
+
+- name: Ensure roboshop user exists
+  ansible.builtin.shell: |
+    rabbitmqctl list_users | awk '{print $1}' | grep -qx roboshop \
+    || rabbitmqctl add_user roboshop roboshop123
+  args:
+    executable: /bin/bash
+
+- name: Ensure roboshop user has permissions on /
+  ansible.builtin.command: rabbitmqctl set_permissions -p / roboshop ".*" ".*" ".*"
+  changed_when: false
