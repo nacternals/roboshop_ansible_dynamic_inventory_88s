@@ -4,8 +4,8 @@ roboshop_app_dir: /app
 roboshop_log_dir: "{{ roboshop_app_dir }}/log"
 
 roboshop_password_plain: RoboShop@1
-ansadmin_password_plain: admin
-ansadmin_pubkey_path: /home/ansadmin/.ssh/id_ed25519.pub
+#ansadmin_password_plain: admin
+#ansadmin_pubkey_path: /home/ansadmin/.ssh/id_ed25519.pub
 
 mongo_port: 27017
 redis_port: 6379
@@ -14,8 +14,8 @@ rabbitmq_port: 5672
 
 roboshop_app_port: 8080
 
-internal_alb_host: internal-alb.dev.optimusprime.uno
-internal_alb_port: 80
+#internal_alb_host: internal-alb.dev.optimusprime.uno
+#internal_alb_port: 80
 
 
 #db tier
