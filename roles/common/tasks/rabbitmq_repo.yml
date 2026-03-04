@@ -1,0 +1,7 @@
+- name: Copying rabbitmq.repo file as /etc/yum.repos.d/rabbitmq.repo
+  ansible.builtin.copy:
+    src: rabbitmq.repo
+    dest: /etc/yum.repos.d/rabbitmq.repo
+    owner: root
+    group: root
+    mode: "0644"

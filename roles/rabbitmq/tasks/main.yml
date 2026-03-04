@@ -1,21 +1,21 @@
 ---
 # tasks file for rabbitmq
-#Setting-up Roboshop Basic App Requirements
+
+# ------------------------------------------------------------
+# 1) Roboshop Basic Requirements
+# ------------------------------------------------------------
 - name: Run Roboshop Application Basic Requirements (from common to rabbitmq microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
-#Setting-up RabbitMQ Database
-- name: Creating RabbitMQ Dependencies (ErLang Repo)
-  ansible.builtin.shell: "curl -s https://packagecloud.io/install/repositories/rabbitmq/erlang/script.rpm.sh | bash"
-  args:
-    creates: /etc/yum.repos.d/rabbitmq_erlang.repo
-
-- name: Creating RabbitMQ Dependencies (RabbitMQ Server Repo)
-  ansible.builtin.shell: "curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | bash"
-  args:
-    creates: /etc/yum.repos.d/rabbitmq_rabbitmq-server.repo
+# ------------------------------------------------------------
+# 2) RabbitMQ Repo + Install + Start
+# ------------------------------------------------------------
+- name: Copying rabbitmq.repo (from common to rabbitmq microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: rabbitmq_repo.yml
 
 - name: Installing RabbitMQ Database
   ansible.builtin.import_role:
@@ -27,14 +27,14 @@
     name: common
     tasks_from: enable_start_service.yml
 
-#Setting-up RabbitMQ User and Enabling Permissions
-# --- FIX: Wait for RabbitMQ, then create user + permissions ---
-
+# ------------------------------------------------------------
+# 3) Ensure RabbitMQ is up before creating users
+# ------------------------------------------------------------
 - name: Ensure RabbitMQ service is started
   ansible.builtin.service:
-    name: "{{ service_name }}"
+    name: rabbitmq-server
     state: started
-    enabled: yes
+    enabled: true
 
 - name: Wait until RabbitMQ is ready
   ansible.builtin.command: rabbitmqctl status
@@ -44,13 +44,30 @@
   until: rabbitmq_status.rc == 0
   changed_when: false
 
-- name: Ensure roboshop user exists
-  ansible.builtin.shell: |
-    rabbitmqctl list_users | awk '{print $1}' | grep -qx roboshop \
-    || rabbitmqctl add_user roboshop roboshop123
-  args:
-    executable: /bin/bash
+# ------------------------------------------------------------
+# 4) Create roboshop user (idempotent)
+# ------------------------------------------------------------
+- name: Check if roboshop user exists
+  ansible.builtin.command: rabbitmqctl list_users
+  register: rabbitmq_users
+  changed_when: false
 
+- name: Create roboshop user if missing
+  ansible.builtin.command: rabbitmqctl add_user roboshop roboshop123
+  when: "'roboshop' not in rabbitmq_users.stdout"
+  register: rabbitmq_add_user
+  changed_when: rabbitmq_add_user.rc == 0
+
+# Optional: tag user (safe even if already tagged)
+- name: Set roboshop user tag (optional)
+  ansible.builtin.command: rabbitmqctl set_user_tags roboshop administrator
+  register: rabbitmq_set_tags
+  failed_when: false
+  changed_when: false
+
+# ------------------------------------------------------------
+# 5) Permissions (idempotent-ish; rabbitmqctl always returns 0)
+# ------------------------------------------------------------
 - name: Ensure roboshop user has permissions on /
   ansible.builtin.command: rabbitmqctl set_permissions -p / roboshop ".*" ".*" ".*"
   changed_when: false

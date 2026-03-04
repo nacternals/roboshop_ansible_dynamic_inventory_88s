@@ -8,7 +8,7 @@
     tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up MongoDB Database
-- name: Installing mongodb.repo (from common to mongodb microservice)
+- name: Copying mongodb.repo (from common to mongodb microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: mongodb_repo.yml
