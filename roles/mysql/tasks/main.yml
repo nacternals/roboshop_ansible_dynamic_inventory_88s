@@ -1,21 +1,30 @@
 ---
 # tasks file for mysql
-#Setting-up Roboshop Application Basic Requirements
+
+# ------------------------------------------------------------
+# 1) Roboshop Basic Requirements
+# ------------------------------------------------------------
 - name: Run Roboshop Application Basic Requirements (from common to mysql microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
-#Setting-up MySQL Database
-- name: Disabling MySQL Default Version (8)
-  ansible.builtin.command: "dnf module disable mysql -y"
-
+# ------------------------------------------------------------
+# 2) MySQL 8 Repo
+# ------------------------------------------------------------
 - name: Copying MySQL Repo File as /etc/yum.repos.d/mysql.repo
   ansible.builtin.copy:
     src: mysql.repo
     dest: /etc/yum.repos.d/mysql.repo
+    owner: root
+    group: root
+    mode: "0644"
 
-- name: Installing MySQL (Required Version 5.7)
+# ------------------------------------------------------------
+# 3) Install + Start MySQL
+#    (Assumes your common/package_installer.yml installs mysql-community-server)
+# ------------------------------------------------------------
+- name: Installing MySQL
   ansible.builtin.import_role:
     name: common
     tasks_from: package_installer.yml
@@ -25,5 +34,34 @@
     name: common
     tasks_from: enable_start_service.yml
 
-- name: Changing MySQL Default User (root) Password
-  ansible.builtin.command: "mysql_secure_installation --set-root-pass RoboShop@1"
+# ------------------------------------------------------------
+# 4) Set MySQL root password (Automation-friendly)
+#    MySQL 8 on EL7 often allows socket auth for root initially.
+#    This will work when root can connect without password locally.
+# ------------------------------------------------------------
+- name: Check if MySQL root password is already set
+  ansible.builtin.shell: |
+    mysql -uroot -p'RoboShop@1' -e "SELECT 1;" >/dev/null 2>&1
+  register: mysql_root_pwd_check
+  changed_when: false
+  failed_when: false
+
+- name: Set MySQL root password (first-time setup)
+  ansible.builtin.shell: |
+    mysql -uroot <<'SQL'
+    ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1';
+    FLUSH PRIVILEGES;
+    SQL
+  when: mysql_root_pwd_check.rc != 0
+
+# ------------------------------------------------------------
+# 5) Ensure auth plugin compatibility (optional but recommended)
+#    Many apps/tools expect mysql_native_password.
+# ------------------------------------------------------------
+- name: Ensure root uses mysql_native_password (MySQL 8 compatibility)
+  ansible.builtin.shell: |
+    mysql -uroot -p'RoboShop@1' <<'SQL'
+    ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'RoboShop@1';
+    FLUSH PRIVILEGES;
+    SQL
+  when: mysql_root_pwd_check.rc == 0
