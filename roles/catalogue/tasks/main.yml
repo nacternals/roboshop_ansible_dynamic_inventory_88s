@@ -51,5 +51,21 @@
     name: common
     tasks_from: package_installer.yml
   
+# Load schema only once
+- name: Check if catalogue schema already loaded
+  ansible.builtin.stat:
+    path: /app/.catalogue_schema_loaded
+  register: catalogue_schema_marker
+
 - name: Loading Catalogue Schema into MongoDB Database
-  ansible.builtin.shell: "mongo --host {{ mongo_host }} </app/schema/catalogue.js"
+  ansible.builtin.shell: |
+    mongosh --host {{ mongo_host }} < /app/schema/catalogue.js
+  args:
+    executable: /bin/bash
+  when: not catalogue_schema_marker.stat.exists
+
+- name: Create schema loaded marker
+  ansible.builtin.file:
+    path: /app/.catalogue_schema_loaded
+    state: touch
+  when: not catalogue_schema_marker.stat.exists

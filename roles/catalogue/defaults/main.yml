@@ -1,4 +1,4 @@
 ---
 # defaults file for catalogue
 service_name: catalogue
-package_name: mongodb-org-shell
+package_name: mongodb-mongosh
