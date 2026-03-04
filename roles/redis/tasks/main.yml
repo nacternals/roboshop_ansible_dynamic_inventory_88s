@@ -10,9 +10,11 @@
 # Setting-up Redis Database (CentOS Stream 8 - use AppStream module)
 - name: Reset redis module
   ansible.builtin.command: dnf -y module reset redis
+  changed_when: true
 
 - name: Enable redis module stream
-  ansible.builtin.command: dnf -y module enable redis:6
+  ansible.builtin.command: dnf -y module enable redis:7
+  changed_when: true
 
 # Install Redis
 - name: Installing Redis Required Version
@@ -20,25 +22,43 @@
     name: common
     tasks_from: package_installer.yml
 
+# Find correct redis config file path
+- name: Check redis config path (/etc/redis.conf)
+  ansible.builtin.stat:
+    path: /etc/redis.conf
+  register: redis_conf_etc
+
+- name: Check redis config path (/etc/redis/redis.conf)
+  ansible.builtin.stat:
+    path: /etc/redis/redis.conf
+  register: redis_conf_dir
+
+- name: Set redis config path fact
+  ansible.builtin.set_fact:
+    redis_conf_path: >-
+      {{ '/etc/redis.conf' if redis_conf_etc.stat.exists else
+         ('/etc/redis/redis.conf' if redis_conf_dir.stat.exists else '/etc/redis.conf') }}
+
 # Configure first, then start service (important)
 - name: Configure Redis to listen on all interfaces
   block:
     - name: Remove invalid Mongo-style bindIp if present
       ansible.builtin.lineinfile:
-        path: /etc/redis.conf
+        path: "{{ redis_conf_path }}"
         regexp: '^\s*bindIp:'
         state: absent
- 
+
     - name: Set Redis bind address
       ansible.builtin.lineinfile:
-        path: /etc/redis.conf
-        regexp: '^bind\s+'
+        path: "{{ redis_conf_path }}"
+        regexp: '^\s*#?\s*bind\s+.*'
         line: 'bind 0.0.0.0'
+        backrefs: false
 
     - name: Disable Redis protected mode
       ansible.builtin.lineinfile:
-        path: /etc/redis.conf
-        regexp: '^protected-mode\s+'
+        path: "{{ redis_conf_path }}"
+        regexp: '^\s*#?\s*protected-mode\s+.*'
         line: 'protected-mode no'
   notify: Restart redis
 
