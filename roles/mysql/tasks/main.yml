@@ -1,29 +1,67 @@
 ---
-# tasks file for mysql
-#Setting-up Roboshop Application Basic Requirements
-- name: Run Roboshop Application Basic Requirements (from common to mysql microservice)
+# roles/mysql/tasks/main.yml
+# tasks file for mysql (RoboShop)
+
+# ------------------------------
+# Basic prerequisites (common)
+# ------------------------------
+- name: Run Roboshop Application Basic Requirements (from common to mysql)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
-#Setting-up MySQL Database
-- name: Disabling MySQL Default Version (8)
-  ansible.builtin.command: "dnf module disable mysql -y"
+# ------------------------------
+# MySQL repo + install
+# ------------------------------
+- name: Disable MySQL default module stream
+  ansible.builtin.command: dnf module disable mysql -y
+  changed_when: false
 
-- name: Copying MySQL Repo File as /etc/yum.repos.d/mysql.repo
+- name: Copy MySQL repo file
   ansible.builtin.copy:
     src: mysql.repo
     dest: /etc/yum.repos.d/mysql.repo
+    owner: root
+    group: root
+    mode: "0644"
 
-- name: Installing MySQL (Required Version 5.7)
+# If your common/package_installer.yml expects "package_name"
+- name: Install MySQL server (5.7 from mysql.repo)
   ansible.builtin.import_role:
     name: common
     tasks_from: package_installer.yml
+  vars:
+    package_name: mysql-community-server
 
-- name: Enabling and Starting MySQL Database Service
+- name: Enable and start MySQL service
   ansible.builtin.import_role:
     name: common
     tasks_from: enable_start_service.yml
+  vars:
+    service_name: mysqld
 
-- name: Changing MySQL Default User (root) Password
-  ansible.builtin.command: "mysql_secure_installation --set-root-pass RoboShop@1"
+# ------------------------------
+# Set root password (idempotent)
+# ------------------------------
+# NOTE:
+# - First try to connect with the desired password.
+# - If it fails, then set it using mysql_secure_installation.
+# - This avoids breaking re-runs.
+
+- name: Check if MySQL root password is already set to desired value
+  ansible.builtin.command: mysqladmin -uroot -p'{{ mysql_root_password }}' ping
+  register: mysql_root_pw_check
+  changed_when: false
+  failed_when: false
+
+- name: Set MySQL root password (first-time only)
+  ansible.builtin.command: mysql_secure_installation --set-root-pass '{{ mysql_root_password }}'
+  when: mysql_root_pw_check.rc != 0
+
+# ------------------------------
+# Optional: ensure MySQL is responding after password set
+# ------------------------------
+- name: Verify MySQL is up (with root password)
+  ansible.builtin.command: mysqladmin -uroot -p'{{ mysql_root_password }}' ping
+  register: mysql_ping
+  changed_when: false
