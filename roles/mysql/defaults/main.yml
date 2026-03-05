@@ -2,3 +2,5 @@
 # defaults file for mysql
 service_name: mysqld
 package_name: mysql-community-server
+# roles/mysql/defaults/main.yml
+mysql_root_password: "RoboShop@1"

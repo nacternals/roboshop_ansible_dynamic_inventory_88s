@@ -3,3 +3,5 @@
 service_name: redis
 package_name: redis
 
+redis_bind: "0.0.0.0"
+redis_protected_mode: "no"

@@ -1,69 +1,71 @@
 ---
-# tasks file for redis
+# roles/redis/tasks/main.yml
 
-# Setting-up Roboshop Application Basic Requirements
-- name: Run Roboshop Application Basic Requirements (from common to redis microservice)
+# ------------------------------
+# Basic prerequisites (common)
+# ------------------------------
+- name: Run Roboshop Application Basic Requirements (from common to redis)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
-# Setting-up Redis Database (CentOS Stream 8 - use AppStream module)
-- name: Reset redis module
-  ansible.builtin.command: dnf -y module reset redis
-  changed_when: true
-
-- name: Enable redis module stream
-  ansible.builtin.command: dnf -y module enable redis:7
-  changed_when: true
-
-# Install Redis
-- name: Installing Redis Required Version
+# ------------------------------
+# Install Redis (no module streams)
+# ------------------------------
+- name: Install Redis
   ansible.builtin.import_role:
     name: common
     tasks_from: package_installer.yml
+  vars:
+    package_name: redis
 
-# Find correct redis config file path
-- name: Check redis config path (/etc/redis.conf)
-  ansible.builtin.stat:
-    path: /etc/redis.conf
-  register: redis_conf_etc
+# ------------------------------
+# Configure Redis for network access
+# ------------------------------
+# NOTE:
+# - For RoboShop, Redis usually needs to be reachable from app tier.
+# - If you want ONLY localhost, set redis_bind=127.0.0.1 and keep protected-mode yes.
 
-- name: Check redis config path (/etc/redis/redis.conf)
-  ansible.builtin.stat:
+- name: Configure Redis bind address
+  ansible.builtin.lineinfile:
     path: /etc/redis/redis.conf
-  register: redis_conf_dir
+    regexp: '^bind\s+'
+    line: "bind {{ redis_bind }}"
+    backrefs: false
 
-- name: Set redis config path fact
-  ansible.builtin.set_fact:
-    redis_conf_path: >-
-      {{ '/etc/redis.conf' if redis_conf_etc.stat.exists else
-         ('/etc/redis/redis.conf' if redis_conf_dir.stat.exists else '/etc/redis.conf') }}
+- name: Configure Redis protected-mode
+  ansible.builtin.lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^protected-mode\s+'
+    line: "protected-mode {{ redis_protected_mode }}"
+    backrefs: false
 
-# Configure first, then start service (important)
-- name: Configure Redis to listen on all interfaces
-  block:
-    - name: Remove invalid Mongo-style bindIp if present
-      ansible.builtin.lineinfile:
-        path: "{{ redis_conf_path }}"
-        regexp: '^\s*bindIp:'
-        state: absent
-
-    - name: Set Redis bind address
-      ansible.builtin.lineinfile:
-        path: "{{ redis_conf_path }}"
-        regexp: '^\s*#?\s*bind\s+.*'
-        line: 'bind 0.0.0.0'
-        backrefs: false
-
-    - name: Disable Redis protected mode
-      ansible.builtin.lineinfile:
-        path: "{{ redis_conf_path }}"
-        regexp: '^\s*#?\s*protected-mode\s+.*'
-        line: 'protected-mode no'
-  notify: Restart redis
-
-# Start/Enable Redis after config
-- name: Enabling and Starting Redis Service
+# ------------------------------
+# Enable and start Redis
+# ------------------------------
+- name: Enable and start Redis service
   ansible.builtin.import_role:
     name: common
     tasks_from: enable_start_service.yml
+  vars:
+    service_name: redis
+
+# ------------------------------
+# Restart Redis if config changed
+# ------------------------------
+- name: Restart Redis
+  ansible.builtin.service:
+    name: redis
+    state: restarted
+
+# ------------------------------
+# Quick validation
+# ------------------------------
+- name: Check Redis ping
+  ansible.builtin.command: redis-cli ping
+  register: redis_ping
+  changed_when: false
+
+- name: Show Redis ping output
+  ansible.builtin.debug:
+    msg: "{{ redis_ping.stdout }}"
