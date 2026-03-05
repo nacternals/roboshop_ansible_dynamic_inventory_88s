@@ -21,23 +21,35 @@
     mode: "0644"
 
 # ------------------------------------------------------------
-# 3) Install + Start MySQL
-#    (Assumes your common/package_installer.yml installs mysql-community-server)
+# 3) Disable MySQL module (Fix for modular filtering error)
+# ------------------------------------------------------------
+- name: Disable default MySQL module
+  ansible.builtin.command: dnf module disable mysql -y
+  changed_when: false
+  failed_when: false
+
+# ------------------------------------------------------------
+# 4) Install MySQL Server
 # ------------------------------------------------------------
 - name: Installing MySQL
   ansible.builtin.import_role:
     name: common
     tasks_from: package_installer.yml
+  vars:
+    package_name: mysql-community-server
 
+# ------------------------------------------------------------
+# 5) Enable + Start MySQL Service
+# ------------------------------------------------------------
 - name: Enabling and Starting MySQL Database Service
   ansible.builtin.import_role:
     name: common
     tasks_from: enable_start_service.yml
+  vars:
+    service_name: mysqld
 
 # ------------------------------------------------------------
-# 4) Set MySQL root password (Automation-friendly)
-#    MySQL 8 on EL7 often allows socket auth for root initially.
-#    This will work when root can connect without password locally.
+# 6) Check if MySQL root password already set
 # ------------------------------------------------------------
 - name: Check if MySQL root password is already set
   ansible.builtin.shell: |
@@ -46,6 +58,9 @@
   changed_when: false
   failed_when: false
 
+# ------------------------------------------------------------
+# 7) Set MySQL root password (first-time setup)
+# ------------------------------------------------------------
 - name: Set MySQL root password (first-time setup)
   ansible.builtin.shell: |
     mysql -uroot <<'SQL'
@@ -55,8 +70,7 @@
   when: mysql_root_pwd_check.rc != 0
 
 # ------------------------------------------------------------
-# 5) Ensure auth plugin compatibility (optional but recommended)
-#    Many apps/tools expect mysql_native_password.
+# 8) Ensure mysql_native_password plugin (compatibility)
 # ------------------------------------------------------------
 - name: Ensure root uses mysql_native_password (MySQL 8 compatibility)
   ansible.builtin.shell: |
