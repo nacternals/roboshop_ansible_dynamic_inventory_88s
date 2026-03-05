@@ -91,11 +91,12 @@
 - name: Reset MySQL root password using skip-grant-tables (last resort)
   ansible.builtin.shell: |
     set -e
+
     systemctl stop mysqld
 
-    # start mysql without grants (local only)
-    mysqld_safe --skip-grant-tables --skip-networking >/tmp/mysqld_safe.log 2>&1 &
-    sleep 6
+    mysqld --skip-grant-tables --skip-networking --daemonize
+
+    sleep 5
 
     mysql <<'SQL'
     FLUSH PRIVILEGES;
@@ -103,18 +104,13 @@
     FLUSH PRIVILEGES;
     SQL
 
-    # stop the unsafe mysqld and start normal service
-    pkill -f mysqld_safe || true
-    pkill -f mysqld || true
-    sleep 2
+    mysqladmin shutdown
+
     systemctl start mysqld
-  register: mysql_setpwd_skip_grants
-  changed_when: true
   when:
     - mysql_root_pwd_check.rc != 0
     - mysql_setpwd_with_pwd.rc != 0
     - mysql_setpwd_with_socket.rc != 0
-  no_log: true
 
 # ------------------------------------------------------------
 # 8) Ensure mysql_native_password plugin (compatibility)
