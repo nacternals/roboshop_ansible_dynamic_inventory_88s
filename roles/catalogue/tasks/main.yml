@@ -1,32 +1,56 @@
 ---
+# roles/catalogue/tasks/main.yml
 # tasks file for catalogue
 
-#Setting-up Basic Roboshop Application Requirements
+# ------------------------------------------------------------
+# 1) Basic Roboshop requirements
+# ------------------------------------------------------------
 - name: Run Roboshop Basic App Requirements (from common to catalogue microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
-#Setting-up NodeJS
+# ------------------------------------------------------------
+# 2) NodeJS
+# ------------------------------------------------------------
 - name: Installing NodeJS (from common to catalogue microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: nodejs_installation.yml
 
-#Setting-up Catalogue Microservice
+# ------------------------------------------------------------
+# 3) App code download + unzip
+# ------------------------------------------------------------
 - name: Downloading and Unzipping Catalogue Microservice
   ansible.builtin.import_role:
     name: common
     tasks_from: download_unzip_service.yml
   vars:
     component: catalogue
+    app_dir: /app
+    artifact_dest: /tmp/catalogue.zip
 
+# Ensure ownership is correct after unzip (sometimes unzip keeps root ownership)
+- name: Ensure /app ownership is roboshop
+  ansible.builtin.file:
+    path: /app
+    state: directory
+    owner: roboshop
+    group: roboshop
+    recurse: true
+
+# ------------------------------------------------------------
+# 4) Dependencies
+# ------------------------------------------------------------
 - name: Installing Catalogue Application Dependencies
-  ansible.builtin.command: "npm install"
+  ansible.builtin.command: npm install
   args:
     chdir: /app
     creates: /app/node_modules
 
+# ------------------------------------------------------------
+# 5) Systemd service
+# ------------------------------------------------------------
 - name: Copying catalogue.service.j2 as /etc/systemd/system/catalogue.service
   ansible.builtin.template:
     src: catalogue.service.j2
@@ -41,25 +65,37 @@
   ansible.builtin.import_role:
     name: common
     tasks_from: enable_start_service.yml
+  vars:
+    service_name: catalogue
 
-#Loading Catalogue Schema into MongoDB Database
+# ------------------------------------------------------------
+# 6) Load Catalogue schema into MongoDB (only once)
+# ------------------------------------------------------------
 - name: Installing mongodb.repo (from common to catalogue microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: mongodb_repo.yml
 
-- name: Installing MongoDB Client
+- name: Installing MongoDB Client (mongosh)
   ansible.builtin.import_role:
     name: common
     tasks_from: package_installer.yml
-  
-# Load schema only once
+  vars:
+    package_name: mongodb-mongosh
+
 - name: Check if catalogue schema already loaded
   ansible.builtin.stat:
     path: /app/.catalogue_schema_loaded
   register: catalogue_schema_marker
 
-- name: Loading Catalogue Schema into MongoDB Database
+- name: Wait for MongoDB port (27017) to be reachable
+  ansible.builtin.wait_for:
+    host: "{{ mongo_host }}"
+    port: 27017
+    timeout: 60
+  when: not catalogue_schema_marker.stat.exists
+
+- name: Load Catalogue schema into MongoDB
   ansible.builtin.shell: |
     mongosh --host {{ mongo_host }} < /app/schema/catalogue.js
   args:
@@ -70,4 +106,7 @@
   ansible.builtin.file:
     path: /app/.catalogue_schema_loaded
     state: touch
+    owner: roboshop
+    group: roboshop
+    mode: "0644"
   when: not catalogue_schema_marker.stat.exists
