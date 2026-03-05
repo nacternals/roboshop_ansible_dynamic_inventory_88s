@@ -4,15 +4,15 @@
 # ------------------------------------------------------------
 # 1) Roboshop Basic Requirements
 # ------------------------------------------------------------
-- name: Run Roboshop Application Basic Requirements (from common to mysql microservice)
+- name: Run Roboshop Application Basic Requirements
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
 # ------------------------------------------------------------
-# 2) MySQL 8 Repo
+# 2) Copy MySQL 5.7 Repo
 # ------------------------------------------------------------
-- name: Copying MySQL Repo File as /etc/yum.repos.d/mysql.repo
+- name: Copy MySQL Repo File
   ansible.builtin.copy:
     src: mysql.repo
     dest: /etc/yum.repos.d/mysql.repo
@@ -21,108 +21,34 @@
     mode: "0644"
 
 # ------------------------------------------------------------
-# 3) Disable MySQL module (Fix for modular filtering error)
+# 3) Disable MySQL module
 # ------------------------------------------------------------
-- name: Disable default MySQL module
+- name: Disable MySQL module
   ansible.builtin.command: dnf module disable mysql -y
   changed_when: false
   failed_when: false
 
 # ------------------------------------------------------------
-# 4) Install MySQL Server
+# 4) Install MySQL 5.7
 # ------------------------------------------------------------
-- name: Installing MySQL
-  ansible.builtin.import_role:
-    name: common
-    tasks_from: package_installer.yml
-  vars:
-    package_name: mysql-community-server
+- name: Install MySQL Server
+  ansible.builtin.package:
+    name: mysql-community-server
+    state: present
 
 # ------------------------------------------------------------
-# 5) Enable + Start MySQL Service
+# 5) Enable and start MySQL
 # ------------------------------------------------------------
-- name: Enabling and Starting MySQL Database Service
-  ansible.builtin.import_role:
-    name: common
-    tasks_from: enable_start_service.yml
-  vars:
-    service_name: mysqld
+- name: Enable and start MySQL
+  ansible.builtin.service:
+    name: mysqld
+    state: started
+    enabled: true
 
 # ------------------------------------------------------------
-# 6) Check if MySQL root password already set
+# 6) Set root password
 # ------------------------------------------------------------
-- name: Check if MySQL root password is already set
+- name: Set MySQL root password
   ansible.builtin.shell: |
-    mysql -uroot -p'RoboShop@1' -e "SELECT 1;" >/dev/null 2>&1
-  register: mysql_root_pwd_check
-  changed_when: false
-  failed_when: false
-  no_log: true
-
-# ------------------------------------------------------------
-# 7A) Try set password using existing password (if any)
-# ------------------------------------------------------------
-- name: Try setting root password using existing password
-  ansible.builtin.shell: |
-    mysql -uroot -p'RoboShop@1' -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1'; FLUSH PRIVILEGES;" >/dev/null 2>&1
-  register: mysql_setpwd_with_pwd
-  changed_when: false
-  failed_when: false
-  when: mysql_root_pwd_check.rc != 0
-  no_log: true
-
-# ------------------------------------------------------------
-# 7B) Try set password using socket auth (if enabled)
-# ------------------------------------------------------------
-- name: Try setting root password using socket auth
-  ansible.builtin.shell: |
-    sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1'; FLUSH PRIVILEGES;" >/dev/null 2>&1
-  register: mysql_setpwd_with_socket
-  changed_when: false
-  failed_when: false
-  when:
-    - mysql_root_pwd_check.rc != 0
-    - mysql_setpwd_with_pwd.rc != 0
-  no_log: true
-
-# ------------------------------------------------------------
-# 7C) Last resort: reset using skip-grant-tables (when both fail)
-# ------------------------------------------------------------
-- name: Reset MySQL root password using skip-grant-tables (last resort)
-  ansible.builtin.shell: |
-    set -e
-
-    systemctl stop mysqld
-
-    # start mysql without authentication
-    sudo -u mysql mysqld --skip-grant-tables --skip-networking --daemonize
-
-    sleep 5
-
-    mysql <<'SQL'
-    FLUSH PRIVILEGES;
-    ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1';
-    FLUSH PRIVILEGES;
-    SQL
-
-    mysqladmin shutdown
-
-    systemctl start mysqld
-  when:
-    - mysql_root_pwd_check.rc != 0
-    - mysql_setpwd_with_pwd.rc != 0
-    - mysql_setpwd_with_socket.rc != 0
-
-# ------------------------------------------------------------
-# 8) Ensure mysql_native_password plugin (compatibility)
-# ------------------------------------------------------------
-- name: Ensure root uses mysql_native_password (MySQL 8 compatibility)
-  ansible.builtin.shell: |
-    mysql -uroot -p'RoboShop@1' <<'SQL'
-    ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'RoboShop@1';
-    FLUSH PRIVILEGES;
-    SQL
-  register: mysql_native_pwd
-  changed_when: false
-  failed_when: false
-  no_log: true
+    mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1'; FLUSH PRIVILEGES;"
+  ignore_errors: true
