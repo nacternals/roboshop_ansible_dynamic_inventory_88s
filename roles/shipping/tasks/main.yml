@@ -1,18 +1,26 @@
 ---
+# roles/shipping/tasks/main.yml
 # tasks file for shipping
-#Setting-up Roboshop Application Basic Requirements
+
+# ------------------------------------------------------------
+# 1) Basic Roboshop requirements
+# ------------------------------------------------------------
 - name: Run Roboshop Basic Application Requirements (from common to shipping microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
-#Setting-up Maven and Java and MySQL Client
-- name: Installing Maven and Java and MySQL Client
+# ------------------------------------------------------------
+# 2) Packages (Java, Maven, MySQL client)
+# ------------------------------------------------------------
+- name: Installing Maven, Java and MySQL Client
   ansible.builtin.package:
     name: "{{ shipping_packages }}"
     state: present
 
-#Setting-up Shipping Microservice Application Code
+# ------------------------------------------------------------
+# 3) App code download + build
+# ------------------------------------------------------------
 - name: Downloading and Unzipping Shipping Microservice Application Code
   ansible.builtin.import_role:
     name: common
@@ -22,63 +30,109 @@
     app_dir: /app
     artifact_dest: /tmp/shipping.zip
 
+- name: Ensure /app ownership is roboshop
+  ansible.builtin.file:
+    path: /app
+    state: directory
+    owner: roboshop
+    group: roboshop
+    recurse: true
+
 - name: Downloading Shipping Application Dependencies and Building Application Jar
-  ansible.builtin.command: "mvn clean package"
+  ansible.builtin.command: mvn clean package
   args:
     chdir: /app
+    creates: /app/target/shipping-1.0.jar
 
 - name: Renaming Shipping Application Jar
-  ansible.builtin.command: "mv target/shipping-1.0.jar shipping.jar"
+  ansible.builtin.command: mv target/shipping-1.0.jar shipping.jar
   args:
     chdir: /app
+    creates: /app/shipping.jar
 
-#Setting-up Shipping Microservice systemd Service
+# ------------------------------------------------------------
+# 4) Systemd service
+# ------------------------------------------------------------
 - name: Copying Shipping Service File (shipping.service.j2) to /etc/systemd/system/shipping.service
   ansible.builtin.template:
     src: shipping.service.j2
     dest: /etc/systemd/system/shipping.service
+    mode: "0644"
   notify: Reload systemd daemon
 
 - name: Run handlers now (reload systemd before starting service)
   ansible.builtin.meta: flush_handlers
 
-- name: Enabling and Staring Shipping Service
+- name: Enabling and Starting Shipping Service
   ansible.builtin.import_role:
     name: common
     tasks_from: enable_start_service.yml
+  vars:
+    service_name: shipping
 
-#Loading Shipping Schema into MySQL Database
-# -------------------------------
-# Loading Shipping Schema into MySQL (Idempotent)
-# DB: cities
-# Base table from schema.sql: cities
-# Marker table: schema_migrations
-# -------------------------------
+# ------------------------------------------------------------
+# 5) Load Shipping DB into MySQL (RUN ONCE + IDEMPOTENT)
+#    DB: cities
+#    Files: /app/db/{schema.sql,app-user.sql,master-data.sql}
+#    Marker: schema_migrations row shipping_db_loaded
+# ------------------------------------------------------------
+
+- name: Wait for MySQL port (3306) to be reachable
+  ansible.builtin.wait_for:
+    host: "{{ mysql_host }}"
+    port: 3306
+    timeout: 60
+  run_once: true
+
+- name: Ensure cities database exists
+  ansible.builtin.command: >
+    mysql -h {{ mysql_host }} -uroot -p{{ mysql_root_password }}
+    -e "CREATE DATABASE IF NOT EXISTS cities;"
+  changed_when: false
+  run_once: true
+  no_log: true
 
 - name: Ensure schema_migrations table exists (marker table)
-  ansible.builtin.shell: >
-    mysql -h {{ mysql_host }} -uroot -pRoboShop@1 -e "
-    USE cities;
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      id INT PRIMARY KEY AUTO_INCREMENT,
-      name VARCHAR(255) UNIQUE,
-      applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );"
+  ansible.builtin.command: >
+    mysql -h {{ mysql_host }} -uroot -p{{ mysql_root_password }} cities
+    -e "CREATE TABLE IF NOT EXISTS schema_migrations
+        (id INT PRIMARY KEY AUTO_INCREMENT,
+         name VARCHAR(255) UNIQUE,
+         applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
   changed_when: false
+  run_once: true
   no_log: true
 
 - name: Check if shipping DB already loaded (marker row)
-  ansible.builtin.shell: >
-    mysql -h {{ mysql_host }} -uroot -pRoboShop@1 -N -s -e "
-    USE cities;
-    SELECT COUNT(*) FROM schema_migrations WHERE name='shipping_db_loaded';"
+  ansible.builtin.command: >
+    mysql -h {{ mysql_host }} -uroot -p{{ mysql_root_password }} -N -s cities
+    -e "SELECT COUNT(*) FROM schema_migrations WHERE name='shipping_db_loaded';"
   register: shipping_schema_check
   changed_when: false
+  run_once: true
   no_log: true
 
+- name: Fail if /app/db SQL files are missing
+  ansible.builtin.stat:
+    path: "/app/db/{{ item }}"
+  loop:
+    - schema.sql
+    - app-user.sql
+    - master-data.sql
+  register: shipping_sql_files
+  when: (shipping_schema_check.stdout | int) == 0
+
+- name: Validate SQL files exist
+  ansible.builtin.fail:
+    msg: "Missing shipping SQL file: {{ item.stat.path }}"
+  loop: "{{ shipping_sql_files.results | default([]) }}"
+  when:
+    - (shipping_schema_check.stdout | int) == 0
+    - not item.stat.exists
+
 - name: Load Shipping DB SQL files into MySQL (one-time)
-  ansible.builtin.shell: >
-    mysql -h {{ mysql_host }} -uroot -pRoboShop@1 < {{ item }}
+  ansible.builtin.shell: |
+    mysql -h {{ mysql_host }} -uroot -p{{ mysql_root_password }} < {{ item }}
   args:
     chdir: /app/db
     executable: /bin/bash
@@ -86,15 +140,19 @@
     - schema.sql
     - app-user.sql
     - master-data.sql
-  when: shipping_schema_check.stdout | int == 0
+  when: (shipping_schema_check.stdout | int) == 0
+  run_once: true
   no_log: true
-  notify: Restart Shipping Service
+  notify: Restart shipping
 
 - name: Mark shipping DB as loaded (so next runs skip)
-  ansible.builtin.shell: >
-    mysql -h {{ mysql_host }} -uroot -pRoboShop@1 -e "
-    USE cities;
-    INSERT IGNORE INTO schema_migrations(name) VALUES ('shipping_db_loaded');"
-  when: shipping_schema_check.stdout | int == 0
+  ansible.builtin.command: >
+    mysql -h {{ mysql_host }} -uroot -p{{ mysql_root_password }} cities
+    -e "INSERT IGNORE INTO schema_migrations(name) VALUES ('shipping_db_loaded');"
+  when: (shipping_schema_check.stdout | int) == 0
   changed_when: true
+  run_once: true
   no_log: true
+
+- name: Flush handlers (restart shipping if DB loaded)
+  ansible.builtin.meta: flush_handlers

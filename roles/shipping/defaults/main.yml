@@ -1,6 +1,9 @@
 ---
 # defaults file for shipping
 service_name: shipping
+mysql_host: "mysql.dev.optimusprime.uno"
+mysql_root_password: "RoboShop@1"
 shipping_packages:
   - maven
+  - java-17-openjdk
   - mysql

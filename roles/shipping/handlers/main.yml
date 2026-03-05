@@ -1,10 +1,9 @@
 ---
-# handlers file for shipping
 - name: Reload systemd daemon
   ansible.builtin.systemd:
     daemon_reload: true
 
-- name: Restart Shipping Service
-  ansible.builtin.systemd:
+- name: Restart shipping
+  ansible.builtin.service:
     name: shipping
     state: restarted
