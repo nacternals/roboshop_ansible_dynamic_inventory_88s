@@ -2,6 +2,6 @@
 # defaults file for payment
 service_name: payment
 payment_packages:
-  - python36
+  - python3
   - gcc
   - python3-devel
