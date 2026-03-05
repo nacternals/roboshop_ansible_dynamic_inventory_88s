@@ -35,15 +35,15 @@
     tasks_from: enable_start_service.yml
 
 #Loading User Schema into MongoDB Database
-- name: Copying MongoDB Repo File as /etc/yum.repos.d/mongodb.repo
-  ansible.builtin.import_role:
-    name: common
-    tasks_from: mongodb_repo.yml
+# - name: Copying MongoDB Repo File as /etc/yum.repos.d/mongodb.repo
+#   ansible.builtin.import_role:
+#     name: common
+#     tasks_from: mongodb_repo.yml
 
-- name: Installing MongoDB Client
-  ansible.builtin.import_role:
-    name: common
-    tasks_from: package_installer.yml
+# - name: Installing MongoDB Client
+#   ansible.builtin.import_role:
+#     name: common
+#     tasks_from: package_installer.yml
 
-- name: Loading User Schema into MongoDB Database
-  ansible.builtin.shell: "mongo --host {{ mongo_host }} </app/schema/user.js"
+# - name: Loading User Schema into MongoDB Database
+#   ansible.builtin.shell: "mongo --host {{ mongo_host }} </app/schema/user.js"

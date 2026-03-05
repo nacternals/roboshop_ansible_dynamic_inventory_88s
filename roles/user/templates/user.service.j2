@@ -4,7 +4,8 @@ Description=User Service
 [Service]
 User=roboshop
 Environment=MONGO=true
-Environment=REDIS_HOST={{ redis_host }}
+//Environment=REDIS_HOST={{ redis_host }}
+Environment=REDIS_URL="redis://{{ redis_host }}:{{ redis_port }}"
 Environment=MONGO_URL="mongodb://{{ mongo_host }}:{{ mongo_port }}/users"
 ExecStart=/bin/node /app/server.js
 SyslogIdentifier=user
