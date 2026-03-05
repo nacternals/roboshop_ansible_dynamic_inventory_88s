@@ -63,7 +63,7 @@
 # ------------------------------------------------------------
 - name: Set MySQL root password (first-time setup)
   ansible.builtin.shell: |
-    mysql -uroot <<'SQL'
+    sudo mysql -uroot <<'SQL'
     ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1';
     FLUSH PRIVILEGES;
     SQL
