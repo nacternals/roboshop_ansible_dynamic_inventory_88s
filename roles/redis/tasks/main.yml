@@ -1,17 +1,11 @@
 ---
 # roles/redis/tasks/main.yml
 
-# ------------------------------
-# Basic prerequisites (common)
-# ------------------------------
 - name: Run Roboshop Application Basic Requirements (from common to redis)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
-# ------------------------------
-# Install Redis (no module streams)
-# ------------------------------
 - name: Install Redis
   ansible.builtin.import_role:
     name: common
@@ -20,28 +14,51 @@
     package_name: redis
 
 # ------------------------------
+# Detect Redis config file path
+# ------------------------------
+- name: Check /etc/redis/redis.conf
+  ansible.builtin.stat:
+    path: /etc/redis/redis.conf
+  register: redis_conf1
+
+- name: Check /etc/redis.conf
+  ansible.builtin.stat:
+    path: /etc/redis.conf
+  register: redis_conf2
+
+- name: Set redis_config_file fact
+  ansible.builtin.set_fact:
+    redis_config_file: >-
+      {{
+        '/etc/redis/redis.conf' if redis_conf1.stat.exists
+        else '/etc/redis.conf' if redis_conf2.stat.exists
+        else ''
+      }}
+
+- name: Fail if Redis config file not found
+  ansible.builtin.fail:
+    msg: "Redis config file not found. Checked /etc/redis/redis.conf and /etc/redis.conf"
+  when: redis_config_file == ''
+
+# ------------------------------
 # Configure Redis for network access
 # ------------------------------
-# NOTE:
-# - For RoboShop, Redis usually needs to be reachable from app tier.
-# - If you want ONLY localhost, set redis_bind=127.0.0.1 and keep protected-mode yes.
-
 - name: Configure Redis bind address
   ansible.builtin.lineinfile:
-    path: /etc/redis/redis.conf
+    path: "{{ redis_config_file }}"
     regexp: '^bind\s+'
     line: "bind {{ redis_bind }}"
-    backrefs: false
+  notify: Restart redis
 
 - name: Configure Redis protected-mode
   ansible.builtin.lineinfile:
-    path: /etc/redis/redis.conf
+    path: "{{ redis_config_file }}"
     regexp: '^protected-mode\s+'
     line: "protected-mode {{ redis_protected_mode }}"
-    backrefs: false
+  notify: Restart redis
 
 # ------------------------------
-# Enable and start Redis
+# Enable & start service
 # ------------------------------
 - name: Enable and start Redis service
   ansible.builtin.import_role:
@@ -51,15 +68,7 @@
     service_name: redis
 
 # ------------------------------
-# Restart Redis if config changed
-# ------------------------------
-- name: Restart Redis
-  ansible.builtin.service:
-    name: redis
-    state: restarted
-
-# ------------------------------
-# Quick validation
+# Validation
 # ------------------------------
 - name: Check Redis ping
   ansible.builtin.command: redis-cli ping
