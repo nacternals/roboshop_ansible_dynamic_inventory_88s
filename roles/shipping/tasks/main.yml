@@ -73,8 +73,6 @@
 # ------------------------------------------------------------
 # 5) Load Shipping DB into MySQL (RUN ONCE + IDEMPOTENT)
 #    DB: cities
-#    Files: /app/db/{schema.sql,app-user.sql,master-data.sql}
-#    Marker: schema_migrations row shipping_db_loaded
 # ------------------------------------------------------------
 
 - name: Wait for MySQL port (3306) to be reachable
@@ -84,13 +82,21 @@
     timeout: 60
   run_once: true
 
+# 1) First do a simple login test (so error message is clear)
+- name: Test MySQL login (root) from shipping node
+  ansible.builtin.command: >
+    mysql -h {{ mysql_host }} -uroot -p{{ mysql_root_password }} -e "SELECT 1;"
+  register: mysql_login_test
+  changed_when: false
+  run_once: true
+
+# 2) Now create DB
 - name: Ensure cities database exists
   ansible.builtin.command: >
     mysql -h {{ mysql_host }} -uroot -p{{ mysql_root_password }}
     -e "CREATE DATABASE IF NOT EXISTS cities;"
   changed_when: false
   run_once: true
-  no_log: true
 
 - name: Ensure schema_migrations table exists (marker table)
   ansible.builtin.command: >
@@ -101,7 +107,7 @@
          applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
   changed_when: false
   run_once: true
-  no_log: true
+  no_log: false
 
 - name: Check if shipping DB already loaded (marker row)
   ansible.builtin.command: >
@@ -110,25 +116,7 @@
   register: shipping_schema_check
   changed_when: false
   run_once: true
-  no_log: true
-
-- name: Fail if /app/db SQL files are missing
-  ansible.builtin.stat:
-    path: "/app/db/{{ item }}"
-  loop:
-    - schema.sql
-    - app-user.sql
-    - master-data.sql
-  register: shipping_sql_files
-  when: (shipping_schema_check.stdout | int) == 0
-
-- name: Validate SQL files exist
-  ansible.builtin.fail:
-    msg: "Missing shipping SQL file: {{ item.stat.path }}"
-  loop: "{{ shipping_sql_files.results | default([]) }}"
-  when:
-    - (shipping_schema_check.stdout | int) == 0
-    - not item.stat.exists
+  no_log: false
 
 - name: Load Shipping DB SQL files into MySQL (one-time)
   ansible.builtin.shell: |
@@ -142,7 +130,7 @@
     - master-data.sql
   when: (shipping_schema_check.stdout | int) == 0
   run_once: true
-  no_log: true
+  no_log: false
   notify: Restart shipping
 
 - name: Mark shipping DB as loaded (so next runs skip)
@@ -152,7 +140,7 @@
   when: (shipping_schema_check.stdout | int) == 0
   changed_when: true
   run_once: true
-  no_log: true
+  no_log: false
 
 - name: Flush handlers (restart shipping if DB loaded)
   ansible.builtin.meta: flush_handlers
