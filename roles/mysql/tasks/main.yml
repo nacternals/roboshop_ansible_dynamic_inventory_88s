@@ -94,7 +94,8 @@
 
     systemctl stop mysqld
 
-    mysqld --skip-grant-tables --skip-networking --daemonize
+    # start mysql without authentication
+    sudo -u mysql mysqld --skip-grant-tables --skip-networking --daemonize
 
     sleep 5
 
