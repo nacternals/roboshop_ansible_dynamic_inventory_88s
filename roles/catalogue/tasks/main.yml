@@ -83,10 +83,30 @@
   vars:
     package_name: mongodb-mongosh
 
+# ------------------------------
+# Load Catalogue schema into MongoDB (only once)
+# ------------------------------
 - name: Check if catalogue schema already loaded
   ansible.builtin.stat:
     path: /app/.catalogue_schema_loaded
   register: catalogue_schema_marker
+
+- name: Find catalogue schema file under /app
+  ansible.builtin.find:
+    paths: /app
+    patterns:
+      - "catalogue.js"
+    recurse: true
+    file_type: file
+  register: catalogue_schema_files
+  when: not catalogue_schema_marker.stat.exists
+
+- name: Fail if catalogue schema file not found in /app
+  ansible.builtin.fail:
+    msg: "catalogue.js not found anywhere under /app. Schema cannot be loaded."
+  when:
+    - not catalogue_schema_marker.stat.exists
+    - catalogue_schema_files.matched | int == 0
 
 - name: Wait for MongoDB port (27017) to be reachable
   ansible.builtin.wait_for:
@@ -97,7 +117,7 @@
 
 - name: Load Catalogue schema into MongoDB
   ansible.builtin.shell: |
-    mongosh --host {{ mongo_host }} < /app/schema/catalogue.js
+    mongosh --host {{ mongo_host }} < "{{ catalogue_schema_files.files[0].path }}"
   args:
     executable: /bin/bash
   when: not catalogue_schema_marker.stat.exists
