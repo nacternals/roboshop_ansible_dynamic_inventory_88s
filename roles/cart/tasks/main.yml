@@ -18,6 +18,10 @@
   ansible.builtin.import_role:
     name: common
     tasks_from: download_unzip_service.yml
+  vars:
+    component: cart
+    app_dir: /app
+    artifact_dest: /tmp/cart.zip
 
 - name: Installing Cart Application Dependencies
   ansible.builtin.command: "npm install"
