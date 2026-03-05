@@ -18,6 +18,8 @@
   ansible.builtin.import_role:
     name: common
     tasks_from: download_unzip_service.yml
+  vars:
+    component: catalogue
 
 - name: Installing Catalogue Application Dependencies
   ansible.builtin.command: "npm install"

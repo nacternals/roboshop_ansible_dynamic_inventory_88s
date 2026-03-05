@@ -1,11 +1,72 @@
-#Setting-up Microservice Application Code
-- name: Downloading {{ service_name }} Microservice Application Code
-  ansible.builtin.get_url:
-    url: "https://roboshop-builds.s3.amazonaws.com/{{ service_name }}-v3.zip"
-    dest: "/tmp/{{ service_name }}.zip"
+---
+# roles/common/tasks/download_unzip_service.yml
+# Requires vars:
+#   component   (e.g., catalogue, cart, user...)
+#   app_dir     (default /app)
+#   artifact_dest (default /tmp/<component>.zip)
 
-- name: Unzipping {{ service_name }} Microservice Application Code
+- name: Set defaults for download/unzip
+  ansible.builtin.set_fact:
+    app_dir: "{{ app_dir | default('/app') }}"
+    artifact_dest: "{{ artifact_dest | default('/tmp/' ~ component ~ '.zip') }}"
+
+# Try multiple URLs (first one that works wins)
+- name: Build artifact URL candidates
+  ansible.builtin.set_fact:
+    artifact_urls:
+      - "https://roboshop-builds.s3.amazonaws.com/{{ component }}.zip"
+      - "https://roboshop-artifacts.s3.amazonaws.com/{{ component }}.zip"
+      - "https://roboshop-artifacts.s3.amazonaws.com/{{ component }}-v3.zip"
+
+- name: Download {{ component }} artifact (try multiple URLs)
+  ansible.builtin.get_url:
+    url: "{{ item }}"
+    dest: "{{ artifact_dest }}"
+    mode: "0644"
+    force: true
+    timeout: 60
+  loop: "{{ artifact_urls }}"
+  register: artifact_download
+  failed_when: false
+  changed_when: artifact_download.status_code is defined and artifact_download.status_code in [200, 304]
+
+- name: Fail if artifact download failed from all URLs
+  ansible.builtin.fail:
+    msg: >
+      Failed to download {{ component }} artifact from all known URLs.
+      Tried: {{ artifact_urls }}
+  when: >
+    (artifact_download.results | selectattr('status_code','defined') | selectattr('status_code','in',[200,304]) | list | length) == 0
+
+- name: Pick first successful download URL
+  ansible.builtin.set_fact:
+    artifact_final_url: >-
+      {{
+        (artifact_download.results
+          | selectattr('status_code','defined')
+          | selectattr('status_code','in',[200,304])
+          | map(attribute='item')
+          | list
+        )[0]
+      }}
+
+- name: Show which URL worked
+  ansible.builtin.debug:
+    msg: "Downloaded {{ component }} from: {{ artifact_final_url }}"
+
+- name: Remove existing application content
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Clean {{ app_dir }}
+  ansible.builtin.shell: "rm -rf {{ app_dir }}/*"
+  args:
+    warn: false
+
+- name: Unzip {{ component }} into {{ app_dir }}
   ansible.builtin.unarchive:
-    src: "/tmp/{{ service_name }}.zip"
-    dest: /app
+    src: "{{ artifact_dest }}"
+    dest: "{{ app_dir }}"
     remote_src: true
