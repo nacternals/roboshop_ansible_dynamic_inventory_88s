@@ -6,6 +6,7 @@
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
+
 #Setting-up GoLang
 - name: Installing Go (GoLang)
   ansible.builtin.import_role:
