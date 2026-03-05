@@ -44,13 +44,35 @@
     tasks_from: enable_start_service.yml
 
 #Loading Shipping Schema into MySQL Database
-#MySQL Client has already been installed via package_installer.yml
+# -------------------------------
+# Loading Shipping Schema into MySQL (Idempotent)
+# DB: cities
+# Base table from schema.sql: cities
+# Marker table: schema_migrations
+# -------------------------------
 
-# - name: Loading Shipping Schema into MySQL Database
-#   ansible.builtin.shell: " mysql -h {{ mysql_host }} -uroot -pRoboShop@1 < /app/schema/shipping.sql "
-#   notify: Restart Shipping Service
+- name: Ensure schema_migrations table exists (marker table)
+  ansible.builtin.shell: >
+    mysql -h {{ mysql_host }} -uroot -pRoboShop@1 -e "
+    USE cities;
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(255) UNIQUE,
+      applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );"
+  changed_when: false
+  no_log: true
 
-- name: Loading Shipping DB SQL files into MySQL
+- name: Check if shipping DB already loaded (marker row)
+  ansible.builtin.shell: >
+    mysql -h {{ mysql_host }} -uroot -pRoboShop@1 -N -s -e "
+    USE cities;
+    SELECT COUNT(*) FROM schema_migrations WHERE name='shipping_db_loaded';"
+  register: shipping_schema_check
+  changed_when: false
+  no_log: true
+
+- name: Load Shipping DB SQL files into MySQL (one-time)
   ansible.builtin.shell: >
     mysql -h {{ mysql_host }} -uroot -pRoboShop@1 < {{ item }}
   args:
@@ -60,5 +82,15 @@
     - schema.sql
     - app-user.sql
     - master-data.sql
+  when: shipping_schema_check.stdout | int == 0
   no_log: true
   notify: Restart Shipping Service
+
+- name: Mark shipping DB as loaded (so next runs skip)
+  ansible.builtin.shell: >
+    mysql -h {{ mysql_host }} -uroot -pRoboShop@1 -e "
+    USE cities;
+    INSERT IGNORE INTO schema_migrations(name) VALUES ('shipping_db_loaded');"
+  when: shipping_schema_check.stdout | int == 0
+  changed_when: true
+  no_log: true
