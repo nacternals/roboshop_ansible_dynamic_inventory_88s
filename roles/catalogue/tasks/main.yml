@@ -69,7 +69,7 @@
     service_name: catalogue
 
 # ------------------------------------------------------------
-# 6) Load Catalogue DB data into MongoDB (only once)
+# 6) Load Catalogue DB data into MongoDB (ONLY if DB is empty)
 #    (In your build, file is /app/db/master-data.js)
 # ------------------------------------------------------------
 - name: Installing mongodb.repo (from common to catalogue microservice)
@@ -84,11 +84,6 @@
   vars:
     package_name: mongodb-mongosh
 
-- name: Check if catalogue data already loaded
-  ansible.builtin.stat:
-    path: /app/.catalogue_schema_loaded
-  register: catalogue_schema_marker
-
 - name: Check if master-data.js exists
   ansible.builtin.stat:
     path: /app/db/master-data.js
@@ -97,26 +92,33 @@
 - name: Fail if /app/db/master-data.js not found
   ansible.builtin.fail:
     msg: "/app/db/master-data.js not found. Cannot load catalogue data into MongoDB."
-  when:
-    - not catalogue_schema_marker.stat.exists
-    - not catalogue_master_data.stat.exists
+  when: not catalogue_master_data.stat.exists
 
+# Ensure MongoDB is reachable (only one host does this check/load)
 - name: Wait for MongoDB port (27017) to be reachable
   ansible.builtin.wait_for:
     host: "{{ mongo_host }}"
     port: 27017
     timeout: 60
-  when: not catalogue_schema_marker.stat.exists
+  run_once: true
 
-- name: Load Catalogue master-data into MongoDB
+# Check DB state (only once, because DB is shared)
+- name: Check if catalogue products already exist in MongoDB
+  ansible.builtin.shell: |
+    mongosh --quiet --host {{ mongo_host }} --eval 'db.getSiblingDB("catalogue").products.countDocuments()'
+  args:
+    executable: /bin/bash
+  register: catalogue_products_count
+  changed_when: false
+  run_once: true
+
+- name: Show existing catalogue product count
+  ansible.builtin.debug:
+    msg: "MongoDB catalogue.products count = {{ catalogue_products_count.stdout | default('0') }}"
+  run_once: true
+
+# Load only when empty (prevents duplicate key errors)
+- name: Load Catalogue master-data into MongoDB (only if empty)
   ansible.builtin.command: "mongosh --host {{ mongo_host }} /app/db/master-data.js"
-  when: not catalogue_schema_marker.stat.exists
-
-- name: Create data loaded marker
-  ansible.builtin.file:
-    path: /app/.catalogue_schema_loaded
-    state: touch
-    owner: roboshop
-    group: roboshop
-    mode: "0644"
-  when: not catalogue_schema_marker.stat.exists
+  when: (catalogue_products_count.stdout | int) == 0
+  run_once: true
