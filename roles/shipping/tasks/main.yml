@@ -17,6 +17,10 @@
   ansible.builtin.import_role:
     name: common
     tasks_from: download_unzip_service.yml
+  vars:
+    component: shipping
+    app_dir: /app
+    artifact_dest: /tmp/shipping.zip
 
 - name: Downloading Shipping Application Dependencies and Building Application Jar
   ansible.builtin.command: "mvn clean package"
