@@ -30,7 +30,7 @@
     app_dir: /app
     artifact_dest: /tmp/catalogue.zip
 
-# Ensure ownership is correct after unzip (sometimes unzip keeps root ownership)
+# Ensure ownership is correct after unzip
 - name: Ensure /app ownership is roboshop
   ansible.builtin.file:
     path: /app
@@ -69,7 +69,8 @@
     service_name: catalogue
 
 # ------------------------------------------------------------
-# 6) Load Catalogue schema into MongoDB (only once)
+# 6) Load Catalogue DB data into MongoDB (only once)
+#    (In your build, file is /app/db/master-data.js)
 # ------------------------------------------------------------
 - name: Installing mongodb.repo (from common to catalogue microservice)
   ansible.builtin.import_role:
@@ -83,30 +84,22 @@
   vars:
     package_name: mongodb-mongosh
 
-# ------------------------------
-# Load Catalogue schema into MongoDB (only once)
-# ------------------------------
-- name: Check if catalogue schema already loaded
+- name: Check if catalogue data already loaded
   ansible.builtin.stat:
     path: /app/.catalogue_schema_loaded
   register: catalogue_schema_marker
 
-- name: Find catalogue schema file under /app
-  ansible.builtin.find:
-    paths: /app
-    patterns:
-      - "catalogue.js"
-    recurse: true
-    file_type: file
-  register: catalogue_schema_files
-  when: not catalogue_schema_marker.stat.exists
+- name: Check if master-data.js exists
+  ansible.builtin.stat:
+    path: /app/db/master-data.js
+  register: catalogue_master_data
 
-- name: Fail if catalogue schema file not found in /app
+- name: Fail if /app/db/master-data.js not found
   ansible.builtin.fail:
-    msg: "catalogue.js not found anywhere under /app. Schema cannot be loaded."
+    msg: "/app/db/master-data.js not found. Cannot load catalogue data into MongoDB."
   when:
     - not catalogue_schema_marker.stat.exists
-    - catalogue_schema_files.matched | int == 0
+    - not catalogue_master_data.stat.exists
 
 - name: Wait for MongoDB port (27017) to be reachable
   ansible.builtin.wait_for:
@@ -115,14 +108,11 @@
     timeout: 60
   when: not catalogue_schema_marker.stat.exists
 
-- name: Load Catalogue schema into MongoDB
-  ansible.builtin.shell: |
-    mongosh --host {{ mongo_host }} < "{{ catalogue_schema_files.files[0].path }}"
-  args:
-    executable: /bin/bash
+- name: Load Catalogue master-data into MongoDB
+  ansible.builtin.command: "mongosh --host {{ mongo_host }} /app/db/master-data.js"
   when: not catalogue_schema_marker.stat.exists
 
-- name: Create schema loaded marker
+- name: Create data loaded marker
   ansible.builtin.file:
     path: /app/.catalogue_schema_loaded
     state: touch
