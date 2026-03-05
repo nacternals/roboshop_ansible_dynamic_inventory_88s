@@ -57,15 +57,64 @@
   register: mysql_root_pwd_check
   changed_when: false
   failed_when: false
+  no_log: true
 
 # ------------------------------------------------------------
-# 7) Set MySQL root password (first-time setup)
+# 7A) Try set password using existing password (if any)
 # ------------------------------------------------------------
-- name: Set MySQL root password (first-time setup)
+- name: Try setting root password using existing password
   ansible.builtin.shell: |
-    mysql -uroot -pRoboShop@1 -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1'; FLUSH PRIVILEGES;" \
-    || sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1'; FLUSH PRIVILEGES;"
+    mysql -uroot -p'RoboShop@1' -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1'; FLUSH PRIVILEGES;" >/dev/null 2>&1
+  register: mysql_setpwd_with_pwd
+  changed_when: false
+  failed_when: false
   when: mysql_root_pwd_check.rc != 0
+  no_log: true
+
+# ------------------------------------------------------------
+# 7B) Try set password using socket auth (if enabled)
+# ------------------------------------------------------------
+- name: Try setting root password using socket auth
+  ansible.builtin.shell: |
+    sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1'; FLUSH PRIVILEGES;" >/dev/null 2>&1
+  register: mysql_setpwd_with_socket
+  changed_when: false
+  failed_when: false
+  when:
+    - mysql_root_pwd_check.rc != 0
+    - mysql_setpwd_with_pwd.rc != 0
+  no_log: true
+
+# ------------------------------------------------------------
+# 7C) Last resort: reset using skip-grant-tables (when both fail)
+# ------------------------------------------------------------
+- name: Reset MySQL root password using skip-grant-tables (last resort)
+  ansible.builtin.shell: |
+    set -e
+    systemctl stop mysqld
+
+    # start mysql without grants (local only)
+    mysqld_safe --skip-grant-tables --skip-networking >/tmp/mysqld_safe.log 2>&1 &
+    sleep 6
+
+    mysql <<'SQL'
+    FLUSH PRIVILEGES;
+    ALTER USER 'root'@'localhost' IDENTIFIED BY 'RoboShop@1';
+    FLUSH PRIVILEGES;
+    SQL
+
+    # stop the unsafe mysqld and start normal service
+    pkill -f mysqld_safe || true
+    pkill -f mysqld || true
+    sleep 2
+    systemctl start mysqld
+  register: mysql_setpwd_skip_grants
+  changed_when: true
+  when:
+    - mysql_root_pwd_check.rc != 0
+    - mysql_setpwd_with_pwd.rc != 0
+    - mysql_setpwd_with_socket.rc != 0
+  no_log: true
 
 # ------------------------------------------------------------
 # 8) Ensure mysql_native_password plugin (compatibility)
@@ -76,4 +125,7 @@
     ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'RoboShop@1';
     FLUSH PRIVILEGES;
     SQL
-  when: mysql_root_pwd_check.rc == 0
+  register: mysql_native_pwd
+  changed_when: false
+  failed_when: false
+  no_log: true
