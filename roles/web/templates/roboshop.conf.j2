@@ -20,6 +20,7 @@ location /api/catalogue/ {
   rewrite ^/api/catalogue/(.*)$ /$1 break;
 
   proxy_set_header Host catalogue.dev.optimusprime.uno;
+  proxy_set_header X-Forwarded-Host $host;
   proxy_set_header X-Forwarded-Proto $scheme;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
@@ -33,6 +34,7 @@ location /api/user/ {
   rewrite ^/api/user/(.*)$ /$1 break;
 
   proxy_set_header Host user.dev.optimusprime.uno;
+  proxy_set_header X-Forwarded-Host $host;
   proxy_set_header X-Forwarded-Proto $scheme;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
@@ -46,6 +48,7 @@ location /api/cart/ {
   rewrite ^/api/cart/(.*)$ /$1 break;
 
   proxy_set_header Host cart.dev.optimusprime.uno;
+  proxy_set_header X-Forwarded-Host $host;
   proxy_set_header X-Forwarded-Proto $scheme;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
@@ -59,6 +62,7 @@ location /api/shipping/ {
   rewrite ^/api/shipping/(.*)$ /$1 break;
 
   proxy_set_header Host shipping.dev.optimusprime.uno;
+  proxy_set_header X-Forwarded-Host $host;
   proxy_set_header X-Forwarded-Proto $scheme;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
@@ -72,8 +76,17 @@ location /api/payment/ {
   rewrite ^/api/payment/(.*)$ /$1 break;
 
   proxy_set_header Host payment.dev.optimusprime.uno;
+  proxy_set_header X-Forwarded-Host $host;
   proxy_set_header X-Forwarded-Proto $scheme;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
   proxy_pass http://payment.dev.optimusprime.uno;
+}
+
+# -----------------------------
+# Ratings Stub
+# -----------------------------
+location /api/ratings/ {
+  default_type application/json;
+  return 200 '[]';
 }
