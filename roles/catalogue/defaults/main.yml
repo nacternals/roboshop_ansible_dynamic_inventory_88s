@@ -2,3 +2,4 @@
 # defaults file for catalogue
 service_name: catalogue
 package_name: mongodb-mongosh
+artifact_url: "https://roboshop-artifacts.s3.amazonaws.com/catalogue-v3.zip"

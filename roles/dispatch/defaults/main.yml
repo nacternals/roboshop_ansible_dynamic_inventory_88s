@@ -2,3 +2,4 @@
 # defaults file for dispatch
 service_name: dispatch
 package_name: golang
+artifact_url: "https://roboshop-artifacts.s3.amazonaws.com/dispatch-v3.zip"

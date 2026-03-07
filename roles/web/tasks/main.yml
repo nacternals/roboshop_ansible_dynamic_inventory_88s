@@ -24,7 +24,7 @@
 
 - name: Downloading Web Microservice Application Code
   ansible.builtin.get_url:
-    url: https://roboshop-builds.s3.amazonaws.com/web.zip
+    url: "https://roboshop-artifacts.s3.amazonaws.com/frontend-v3.zip"
     dest: /tmp/web.zip
 
 - name: Unzipping Web Microservice Application Code to /usr/share/nginx/hmtl/

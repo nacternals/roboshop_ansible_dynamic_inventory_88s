@@ -1,6 +1,7 @@
 ---
 # defaults file for payment
 service_name: payment
+artifact_url: "https://roboshop-artifacts.s3.amazonaws.com/payment-v3.zip"
 payment_packages:
   - python3
   - gcc

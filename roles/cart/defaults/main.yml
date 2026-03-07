@@ -1,3 +1,4 @@
 ---
 # defaults file for cart
 service_name: cart
+artifact_url: "https://roboshop-artifacts.s3.amazonaws.com/cart-v3.zip"

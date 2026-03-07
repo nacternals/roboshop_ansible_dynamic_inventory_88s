@@ -4,34 +4,18 @@
     app_dir: "{{ app_dir | default('/app') }}"
     artifact_dest: "{{ artifact_dest | default('/tmp/' ~ component ~ '.zip') }}"
 
-- name: Build artifact URL candidates
-  ansible.builtin.set_fact:
-    artifact_urls:
-      - "https://roboshop-builds.s3.amazonaws.com/{{ component }}.zip"
-      - "https://roboshop-artifacts.s3.amazonaws.com/{{ component }}.zip"
-      - "https://roboshop-artifacts.s3.amazonaws.com/{{ component }}-v3.zip"
+- name: Validate artifact_url is provided
+  ansible.builtin.fail:
+    msg: "artifact_url must be provided for component {{ component }}"
+  when: artifact_url is not defined or artifact_url | length == 0
 
-- name: Download {{ component }} artifact (try multiple URLs)
+- name: Download {{ component }} artifact
   ansible.builtin.get_url:
-    url: "{{ item }}"
+    url: "{{ artifact_url }}"
     dest: "{{ artifact_dest }}"
     mode: "0644"
     force: true
     timeout: 60
-  loop: "{{ artifact_urls }}"
-  register: artifact_download
-  failed_when: false
-  changed_when: artifact_download.status_code is defined and artifact_download.status_code in [200, 304]
-
-- name: Fail if artifact download failed from all URLs
-  ansible.builtin.fail:
-    msg: "Failed to download {{ component }} artifact. Tried: {{ artifact_urls }}"
-  when: >
-    (artifact_download.results
-      | selectattr('status_code','defined')
-      | selectattr('status_code','in',[200,304])
-      | list
-      | length) == 0
 
 - name: Remove application directory completely (clean)
   ansible.builtin.file:

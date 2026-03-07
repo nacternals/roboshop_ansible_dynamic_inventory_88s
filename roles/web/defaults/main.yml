@@ -2,3 +2,4 @@
 # defaults file for web
 service_name: nginx
 package_name: nginx
+artifact_url: "https://roboshop-artifacts.s3.amazonaws.com/frontend-v3.zip"

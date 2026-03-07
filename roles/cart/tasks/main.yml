@@ -22,6 +22,7 @@
     component: cart
     app_dir: /app
     artifact_dest: /tmp/cart.zip
+    artifact_url: "{{ artifact_url }}"
 
 - name: Installing Cart Application Dependencies
   ansible.builtin.command: "npm install"
