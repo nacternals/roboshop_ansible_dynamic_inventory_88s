@@ -1,2 +1,7 @@
 ---
-# handlers file for mysql
+# roles/mysql/handlers/main.yml
+
+- name: Restart mysqld
+  ansible.builtin.service:
+    name: mysqld
+    state: restarted

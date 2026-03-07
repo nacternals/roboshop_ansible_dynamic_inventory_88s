@@ -3,6 +3,7 @@
 service_name: shipping
 mysql_host: "mysql.dev.optimusprime.uno"
 mysql_root_password: "RoboShop@1"
+mysql_root_host_pattern: "10.10.%"
 shipping_packages:
   - maven
   - java-17-openjdk

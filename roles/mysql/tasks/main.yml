@@ -25,7 +25,6 @@
     group: root
     mode: "0644"
 
-# If your common/package_installer.yml expects "package_name"
 - name: Install MySQL server (5.7 from mysql.repo)
   ansible.builtin.import_role:
     name: common
@@ -43,11 +42,6 @@
 # ------------------------------
 # Set root password (idempotent)
 # ------------------------------
-# NOTE:
-# - First try to connect with the desired password.
-# - If it fails, then set it using mysql_secure_installation.
-# - This avoids breaking re-runs.
-
 - name: Check if MySQL root password is already set to desired value
   ansible.builtin.command: mysqladmin -uroot -p'{{ mysql_root_password }}' ping
   register: mysql_root_pw_check
@@ -59,9 +53,64 @@
   when: mysql_root_pw_check.rc != 0
 
 # ------------------------------
-# Optional: ensure MySQL is responding after password set
+# MySQL network configuration
+# ------------------------------
+- name: Ensure MySQL bind-address is 0.0.0.0
+  ansible.builtin.lineinfile:
+    path: /etc/my.cnf
+    regexp: '^\s*bind-address\s*='
+    line: 'bind-address=0.0.0.0'
+    insertafter: '^\[mysqld\]'
+  notify: Restart mysqld
+
+- name: Remove skip-networking if present
+  ansible.builtin.lineinfile:
+    path: /etc/my.cnf
+    regexp: '^\s*skip-networking'
+    state: absent
+  notify: Restart mysqld
+
+- name: Flush handlers so mysqld restarts before root grants
+  ansible.builtin.meta: flush_handlers
+
+# ------------------------------
+# Verify MySQL is responding
 # ------------------------------
 - name: Verify MySQL is up (with root password)
   ansible.builtin.command: mysqladmin -uroot -p'{{ mysql_root_password }}' ping
   register: mysql_ping
   changed_when: false
+
+# ------------------------------
+# Allow remote root login from app subnet
+# Example mysql_root_host_pattern: 10.10.%
+# ------------------------------
+- name: Create remote root user for app subnet
+  ansible.builtin.command: >
+    mysql -uroot -p{{ mysql_root_password }} -e
+    "CREATE USER IF NOT EXISTS 'root'@'{{ mysql_root_host_pattern }}'
+    IDENTIFIED BY '{{ mysql_root_password }}';"
+  changed_when: false
+
+- name: Grant privileges to remote root user for app subnet
+  ansible.builtin.command: >
+    mysql -uroot -p{{ mysql_root_password }} -e
+    "GRANT ALL PRIVILEGES ON *.* TO 'root'@'{{ mysql_root_host_pattern }}'
+    WITH GRANT OPTION;"
+  changed_when: false
+
+- name: Flush MySQL privileges
+  ansible.builtin.command: >
+    mysql -uroot -p{{ mysql_root_password }} -e "FLUSH PRIVILEGES;"
+  changed_when: false
+
+- name: Show MySQL root host entries
+  ansible.builtin.command: >
+    mysql -uroot -p{{ mysql_root_password }} -e
+    "SELECT user,host FROM mysql.user WHERE user='root';"
+  register: mysql_root_entries
+  changed_when: false
+
+- name: Debug MySQL root host entries
+  ansible.builtin.debug:
+    var: mysql_root_entries.stdout_lines
