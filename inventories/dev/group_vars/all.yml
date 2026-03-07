@@ -4,27 +4,22 @@ roboshop_app_dir: /app
 roboshop_log_dir: "{{ roboshop_app_dir }}/log"
 
 roboshop_password_plain: RoboShop@1
-#ansadmin_password_plain: admin
-#ansadmin_pubkey_path: /home/ansadmin/.ssh/id_ed25519.pub
 
 mongo_port: 27017
 redis_port: 6379
-mysql_port: 3306 
+mysql_port: 3306
 rabbitmq_port: 5672
 
 roboshop_app_port: 8080
+internal_alb_port: 80
 
-#internal_alb_host: internal-alb.dev.optimusprime.uno
-#internal_alb_port: 80
-
-
-#db tier
+# db tier
 mongo_host: mongodb.dev.optimusprime.uno
 redis_host: redis.dev.optimusprime.uno
 mysql_host: mysql.dev.optimusprime.uno
 rabbitmq_host: rabbitmq.dev.optimusprime.uno
 
-#app tier
+# app tier (these DNS names resolve to internal ALB)
 catalogue_host: catalogue.dev.optimusprime.uno
 cart_host: cart.dev.optimusprime.uno
 user_host: user.dev.optimusprime.uno
@@ -32,13 +27,13 @@ shipping_host: shipping.dev.optimusprime.uno
 payment_host: payment.dev.optimusprime.uno
 dispatch_host: dispatch.dev.optimusprime.uno
 
-#web tier
+# web tier
 web_host: web.dev.optimusprime.uno
 
-#app ports
-catalogue_port: "{{ roboshop_app_port }}"
-cart_port: "{{ roboshop_app_port }}"
-user_port: "{{ roboshop_app_port }}"
-shipping_port: "{{ roboshop_app_port }}"
-payment_port: "{{ roboshop_app_port }}"
-dispatch_port: "{{ roboshop_app_port }}"
+# app access ports via internal ALB
+catalogue_port: "{{ internal_alb_port }}"
+cart_port: "{{ internal_alb_port }}"
+user_port: "{{ internal_alb_port }}"
+shipping_port: "{{ internal_alb_port }}"
+payment_port: "{{ internal_alb_port }}"
+dispatch_port: "{{ internal_alb_port }}"
