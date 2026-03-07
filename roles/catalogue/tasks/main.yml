@@ -29,7 +29,7 @@
     component: catalogue
     app_dir: /app
     artifact_dest: /tmp/catalogue.zip
-    artifact_url: "{{ artifact_url }}"
+    artifact_url: "{{ catalogue_artifact_url }}"
 
 # Ensure ownership is correct after unzip
 - name: Ensure /app ownership is roboshop

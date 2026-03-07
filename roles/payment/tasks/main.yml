@@ -21,7 +21,7 @@
     component: payment
     app_dir: /app
     artifact_dest: /tmp/payment.zip
-    artifact_url: "{{ artifact_url }}"
+    artifact_url: "{{ payment_artifact_url }}"
 
 #Setting-up Payment Application Dependencies
 # - name: Installing Payment Application Dependencies

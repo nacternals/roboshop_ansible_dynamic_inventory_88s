@@ -2,4 +2,4 @@
 # defaults file for user
 service_name: user
 package_name: mongodb-org-shell
-artifact_url: "https://roboshop-artifacts.s3.amazonaws.com/user-v3.zip"
+user_artifact_url: "https://roboshop-artifacts.s3.amazonaws.com/user-v3.zip"

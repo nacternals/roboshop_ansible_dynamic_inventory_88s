@@ -8,4 +8,4 @@ shipping_packages:
   - maven
   - java-17-openjdk
   - mysql
-artifact_url: "https://roboshop-artifacts.s3.amazonaws.com/shipping-v3.zip"
+shipping_artifact_url: "https://roboshop-artifacts.s3.amazonaws.com/shipping-v3.zip"

@@ -22,7 +22,7 @@
     component: dispatch
     app_dir: /app
     artifact_dest: /tmp/dispatch.zip
-    artifact_url: "{{ artifact_url }}"
+    artifact_url: "{{ dispatch_artifact_url }}"
 
 #Setting-up Dispatch Application Dependencies and Build
 - name: Intializing Dispatch Application Dependencies and Building the Application

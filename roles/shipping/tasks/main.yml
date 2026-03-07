@@ -29,7 +29,7 @@
     component: shipping
     app_dir: /app
     artifact_dest: /tmp/shipping.zip
-    artifact_url: "{{ artifact_url }}"
+    artifact_url: "{{ shipping_artifact_url }}"
 
 - name: Ensure /app ownership is roboshop
   ansible.builtin.file:

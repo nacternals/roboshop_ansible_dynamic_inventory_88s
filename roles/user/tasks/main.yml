@@ -21,7 +21,7 @@
     component: user
     app_dir: /app
     artifact_dest: /tmp/user.zip
-    artifact_url: "{{ artifact_url }}"
+    artifact_url: "{{ user_artifact_url }}"
 
 - name: Installing User Microservice Application Dependencies
   ansible.builtin.command: "npm install"
