@@ -1,7 +1,19 @@
 ---
+# =========================================================
+# AMI Cleanup Playbook for RoboShop
+# Covers:
+#   - DB tier
+#   - App tier
+#   - Web tier
+# =========================================================
+
+# ---------------------------------------------------------
+# 1. Stop DB services
+# ---------------------------------------------------------
 - name: Stop MongoDB for AMI
   hosts: comp_mongodb
   become: true
+  gather_facts: false
   tasks:
     - name: Stop mongod
       ansible.builtin.systemd:
@@ -11,6 +23,7 @@
 - name: Stop Redis for AMI
   hosts: comp_redis
   become: true
+  gather_facts: false
   tasks:
     - name: Stop redis
       ansible.builtin.systemd:
@@ -20,6 +33,7 @@
 - name: Stop MySQL for AMI
   hosts: comp_mysql
   become: true
+  gather_facts: false
   tasks:
     - name: Stop mysqld
       ansible.builtin.systemd:
@@ -29,33 +43,116 @@
 - name: Stop RabbitMQ for AMI
   hosts: comp_rabbitmq
   become: true
+  gather_facts: false
   tasks:
     - name: Stop rabbitmq-server
       ansible.builtin.systemd:
         name: rabbitmq-server
         state: stopped
 
-- name: Common cleanup for AMI (DB tier)
+
+# ---------------------------------------------------------
+# 2. Stop APP services
+# ---------------------------------------------------------
+- name: Stop Catalogue for AMI
+  hosts: comp_catalogue
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop catalogue
+      ansible.builtin.systemd:
+        name: catalogue
+        state: stopped
+
+- name: Stop User for AMI
+  hosts: comp_user
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop user
+      ansible.builtin.systemd:
+        name: user
+        state: stopped
+
+- name: Stop Cart for AMI
+  hosts: comp_cart
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop cart
+      ansible.builtin.systemd:
+        name: cart
+        state: stopped
+
+- name: Stop Shipping for AMI
+  hosts: comp_shipping
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop shipping
+      ansible.builtin.systemd:
+        name: shipping
+        state: stopped
+
+- name: Stop Payment for AMI
+  hosts: comp_payment
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop payment
+      ansible.builtin.systemd:
+        name: payment
+        state: stopped
+
+- name: Stop Dispatch for AMI
+  hosts: comp_dispatch
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop dispatch
+      ansible.builtin.systemd:
+        name: dispatch
+        state: stopped
+
+
+# ---------------------------------------------------------
+# 3. Stop WEB service
+# ---------------------------------------------------------
+- name: Stop Nginx for AMI
+  hosts: comp_web
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: stopped
+
+
+# ---------------------------------------------------------
+# 4. Common cleanup for DB tier
+# ---------------------------------------------------------
+- name: Common cleanup for DB tier
   hosts: tier_db
   become: true
+  gather_facts: true
   tasks:
-    - name: Clean yum cache
-      ansible.builtin.yum:
-        name: "*"
-        state: latest
-        update_cache: false
-      register: yum_result
-      failed_when: false
+    - name: Clean package manager cache (dnf/yum)
+      ansible.builtin.shell: |
+        dnf clean all || yum clean all || true
+      args:
+        executable: /bin/bash
+      changed_when: false
 
-    - name: Remove yum cache dirs
+    - name: Remove package cache directories
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
       loop:
+        - /var/cache/dnf
         - /var/cache/yum
-        - /var/tmp/yum-*
 
-    - name: Clean temp dirs
+    - name: Remove temp directories
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
@@ -63,7 +160,7 @@
         - /tmp
         - /var/tmp
 
-    - name: Recreate temp dirs with correct perms
+    - name: Recreate temp directories with correct permissions
       ansible.builtin.file:
         path: "{{ item.path }}"
         state: directory
@@ -72,8 +169,229 @@
         - { path: "/tmp", mode: "1777" }
         - { path: "/var/tmp", mode: "1777" }
 
-    - name: remove cloud-init state (recommended for AMI baking)
+    - name: Truncate log files
+      ansible.builtin.shell: |
+        find /var/log -type f -exec truncate -s 0 {} \; || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Remove cloud-init state
       ansible.builtin.file:
         path: /var/lib/cloud
         state: absent
       ignore_errors: true
+
+    - name: Remove SSH host keys
+      ansible.builtin.shell: |
+        rm -f /etc/ssh/ssh_host_*
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Reset machine-id
+      ansible.builtin.shell: |
+        truncate -s 0 /etc/machine-id
+        rm -f /var/lib/dbus/machine-id
+        ln -s /etc/machine-id /var/lib/dbus/machine-id
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Clear root bash history
+      ansible.builtin.shell: |
+        cat /dev/null > /root/.bash_history || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Sync filesystem
+      ansible.builtin.command: sync
+      changed_when: false
+
+
+# ---------------------------------------------------------
+# 5. Common cleanup for APP tier
+# ---------------------------------------------------------
+- name: Common cleanup for APP tier
+  hosts: tier_app
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Clean package manager cache (dnf/yum)
+      ansible.builtin.shell: |
+        dnf clean all || yum clean all || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Remove package cache directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/cache/dnf
+        - /var/cache/yum
+
+    - name: Remove temp directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp
+        - /var/tmp
+
+    - name: Recreate temp directories with correct permissions
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "/tmp", mode: "1777" }
+        - { path: "/var/tmp", mode: "1777" }
+
+    - name: Truncate log files
+      ansible.builtin.shell: |
+        find /var/log -type f -exec truncate -s 0 {} \; || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Remove application temporary artifacts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/ansible
+        - /tmp/ansible*
+        - /root/.ansible/tmp
+      ignore_errors: true
+
+    - name: Remove cloud-init state
+      ansible.builtin.file:
+        path: /var/lib/cloud
+        state: absent
+      ignore_errors: true
+
+    - name: Remove SSH host keys
+      ansible.builtin.shell: |
+        rm -f /etc/ssh/ssh_host_*
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Reset machine-id
+      ansible.builtin.shell: |
+        truncate -s 0 /etc/machine-id
+        rm -f /var/lib/dbus/machine-id
+        ln -s /etc/machine-id /var/lib/dbus/machine-id
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Clear root bash history
+      ansible.builtin.shell: |
+        cat /dev/null > /root/.bash_history || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Clear app user bash history if exists
+      ansible.builtin.shell: |
+        cat /dev/null > /home/roboshop/.bash_history || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+      ignore_errors: true
+
+    - name: Sync filesystem
+      ansible.builtin.command: sync
+      changed_when: false
+
+
+# ---------------------------------------------------------
+# 6. Common cleanup for WEB tier
+# ---------------------------------------------------------
+- name: Common cleanup for WEB tier
+  hosts: tier_web
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Clean package manager cache (dnf/yum)
+      ansible.builtin.shell: |
+        dnf clean all || yum clean all || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Remove package cache directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/cache/dnf
+        - /var/cache/yum
+
+    - name: Remove temp directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp
+        - /var/tmp
+
+    - name: Recreate temp directories with correct permissions
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "/tmp", mode: "1777" }
+        - { path: "/var/tmp", mode: "1777" }
+
+    - name: Truncate log files
+      ansible.builtin.shell: |
+        find /var/log -type f -exec truncate -s 0 {} \; || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Remove nginx logs
+      ansible.builtin.shell: |
+        rm -f /var/log/nginx/*log || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Remove cloud-init state
+      ansible.builtin.file:
+        path: /var/lib/cloud
+        state: absent
+      ignore_errors: true
+
+    - name: Remove SSH host keys
+      ansible.builtin.shell: |
+        rm -f /etc/ssh/ssh_host_*
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Reset machine-id
+      ansible.builtin.shell: |
+        truncate -s 0 /etc/machine-id
+        rm -f /var/lib/dbus/machine-id
+        ln -s /etc/machine-id /var/lib/dbus/machine-id
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Clear root bash history
+      ansible.builtin.shell: |
+        cat /dev/null > /root/.bash_history || true
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Sync filesystem
+      ansible.builtin.command: sync
+      changed_when: false
