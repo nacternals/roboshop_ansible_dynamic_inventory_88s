@@ -129,6 +129,7 @@
   hosts: tier_db
   become: true
   gather_facts: true
+  ignore_unreachable: true
   tasks:
     - name: Clean package manager cache
       ansible.builtin.shell: |
@@ -209,6 +210,7 @@
   hosts: tier_app
   become: true
   gather_facts: true
+  ignore_unreachable: true
   tasks:
     - name: Clean package manager cache
       ansible.builtin.shell: |
@@ -304,6 +306,7 @@
   hosts: tier_web
   become: true
   gather_facts: true
+  ignore_unreachable: true
   tasks:
     - name: Clean package manager cache
       ansible.builtin.shell: |
