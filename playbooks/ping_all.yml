@@ -2,6 +2,7 @@
 - name: Ping All Roboshop Microservices (AWS Dynamic EC2 Inventory)
   hosts: all
   gather_facts: false
+  
   tasks:
     - name: Ping All EC2 Instances
       ansible.builtin.ping:
@@ -9,4 +10,6 @@
     - name: Print Ping Status
       ansible.builtin.debug:
         var: ping_result
+
+
 
